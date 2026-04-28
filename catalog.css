@@ -1,0 +1,615 @@
+body { background-color: #FFF8EE; color: #5C3A21; font-family: sans-serif; margin: 0; padding: 15px; padding-bottom: 80px; -webkit-tap-highlight-color: transparent; }
+
+/* Шапка 2.0 */
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.header-left { display: flex; align-items: center; gap: 10px; }
+.corgi-logo { font-size: 32px; }
+.header-text p { margin: 0; font-size: 10px; opacity: 0.6; font-weight: bold; text-transform: uppercase; }
+.header-text h1 { font-size: 18px; margin: 0; font-weight: 900; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background-color: #D97736; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; object-fit: cover; border: 2px solid #E8C396; }
+
+/* Навигация и Поиск */
+.nav-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; }
+.search-btn { background: white; border: 2px solid #E8C396; border-radius: 20px; width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.categories { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.categories::-webkit-scrollbar { display: none; }
+.cat-btn { background: white; border: 2px solid #E8C396; padding: 8px 14px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; font-size: 13px; font-weight: bold; color: #5C3A21; cursor: pointer; transition: 0.2s; }
+.cat-btn.active { background: #D97736; color: white; border-color: #D97736; }
+
+.search-container { overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 0; opacity: 0; margin-bottom: 0; }
+.search-container.active { max-height: 100px; opacity: 1; margin-bottom: 15px; }
+.search-input { width: 100%; padding: 12px 16px; border: 2px solid #E8C396; border-radius: 16px; font-size: 14px; box-sizing: border-box; background: white; outline: none; }
+.search-status { font-size: 12px; font-weight: bold; margin-top: 8px; text-align: center; color: #8B5E3C; }
+
+/* Панель управления 3.1 */
+.controls-panel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; position: relative; }
+.filter-btn { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #8B5E3C; cursor: pointer; padding: 6px 12px; border-radius: 12px; background: white; border: 1px solid rgba(232, 195, 150, 0.4); box-shadow: 0 2px 6px rgba(92, 58, 33, 0.05); }
+.filter-arrow { color: #D97736; font-weight: 900; }
+.filter-count { background: #D97736; color: white; font-size: 11px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.filter-btn.active { color: #D97736; border-color: #D97736; }
+.sort-container { position: relative; }
+.sort-btn { font-size: 13px; font-weight: bold; color: #8B5E3C; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 12px; background: white; border: 1px solid rgba(232, 195, 150, 0.4); box-shadow: 0 2px 6px rgba(92, 58, 33, 0.05); }
+.sort-menu { position: absolute; top: 100%; right: 0; background: white; border-radius: 14px; box-shadow: 0 8px 20px rgba(92, 58, 33, 0.15); border: 1px solid rgba(232, 195, 150, 0.4); margin-top: 8px; width: 180px; z-index: 20; opacity: 0; pointer-events: none; transform: translateY(-10px); transition: 0.2s ease; overflow: hidden; }
+.sort-menu.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.sort-option { padding: 12px 16px; font-size: 13px; font-weight: bold; border-bottom: 1px solid rgba(232, 195, 150, 0.2); cursor: pointer; color: #5C3A21; }
+.sort-option:last-child { border-bottom: none; }
+.sort-option:active { background: #fcf6ef; }
+
+/* Аккордеоны и Сетка */
+.accordion { background: white; border-radius: 18px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(92, 58, 33, 0.06); border: 1px solid rgba(232, 195, 150, 0.4); overflow: hidden; }
+.accordion-summary { padding: 16px; font-size: 15px; font-weight: bold; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; background-color: #fff; transition: 0.2s; }
+.accordion-summary::-webkit-details-marker { display: none; }
+.accordion-summary:active { background-color: #fcf6ef; }
+.accordion-summary::after { content: "▼"; font-size: 12px; color: #D97736; transition: transform 0.3s; }
+.accordion[open] .accordion-summary::after { transform: rotate(180deg); }
+
+.group-title { display: flex; flex-direction: column; gap: 4px; }
+.group-brand { font-size: 10px; text-transform: uppercase; color: #D97736; font-weight: 900; letter-spacing: 0.5px; }
+.group-name { display: flex; align-items: center; gap: 8px; }
+.group-strength { background: #F3E9DC; color: #8B5E3C; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+
+.accordion-content { background-color: #f7f3ec; border-top: 1px solid rgba(232, 195, 150, 0.2); padding: 12px; }
+.products-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.card { background: white; border-radius: 14px; padding: 12px; box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05); display: flex; flex-direction: column; position: relative; border: 1px solid rgba(232, 195, 150, 0.2); cursor: pointer; transition: transform 0.1s; }
+.card:active { transform: scale(0.97); }
+.badge-new { position: absolute; top: -5px; right: -5px; background: #FFD700; font-size: 9px; padding: 4px 8px; border-radius: 10px; font-weight: 900; color: #5C3A21; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.title { font-size: 13px; font-weight: bold; margin-bottom: 12px; line-height: 1.3; flex-grow: 1; }
+.price { font-size: 15px; color: #D97736; font-weight: 900; margin-top: auto; }
+
+.accordion[open] .accordion-content { animation: slideDown 0.3s ease-out forwards; }
+@keyframes slideDown { 0% { opacity: 0; transform: translateY(-5px); } 100% { opacity: 1; transform: translateY(0); } }
+
+/* Шторки */
+.overlay { 
+    /* Было 10, стало 2000 */
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 2000; opacity: 0; pointer-events: none; transition: 0.3s; 
+}
+.overlay.active { opacity: 1; pointer-events: auto; }
+
+.bottom-sheet { 
+    /* Было 11, стало 2001 */
+    position: fixed; bottom: -100%; left: 0; width: 100%; background: #FFF8EE; border-radius: 24px 24px 0 0; z-index: 2001; transition: 0.3s ease-out; padding: 20px; box-sizing: border-box; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); max-height: 90vh; display: flex; flex-direction: column; 
+}
+.bottom-sheet.active { bottom: 0; }
+.sheet-handle { width: 40px; height: 5px; background: #E8C396; border-radius: 5px; margin: 0 auto 20px; flex-shrink: 0; }
+.sheet-title { font-size: 18px; font-weight: 900; margin: 0 0 5px; line-height: 1.2; }
+.sheet-subtitle { font-size: 13px; color: #8B5E3C; margin-bottom: 20px; font-weight: bold; }
+.sheet-price { font-size: 22px; color: #D97736; font-weight: 900; margin-bottom: 20px; }
+
+.qty-controls { display: flex; align-items: center; justify-content: space-between; background: white; border-radius: 16px; padding: 10px; margin-bottom: 20px; border: 2px solid #E8C396; }
+.qty-btn { background: #f7f3ec; border: none; width: 40px; height: 40px; border-radius: 12px; font-size: 20px; font-weight: bold; color: #D97736; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.qty-btn:active { background: #E8C396; }
+.qty-value { font-size: 18px; font-weight: 900; }
+
+/* Общий визуал для обеих кнопок (100% идентичность) */
+.btn-main, .fake-main-btn {
+    position: relative;
+    overflow: hidden;
+    border-radius: 100px; 
+    
+    /* Сделали правый край градиента насыщеннее: 0.75 вместо 0.5 */
+    background: linear-gradient(135deg, rgba(217, 119, 54, 0.95), rgba(217, 119, 54, 0.75));
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+        0 8px 24px rgba(217, 119, 54, 0.3);
+        
+    color: white; 
+    font-size: 16px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    transition: all 0.2s ease;
+    outline: none;
+    text-align: center;
+}
+
+/* Эффект при нажатии на любую из них */
+.btn-main:active, .fake-main-btn:active { 
+    transform: scale(0.97);
+    /* Чуть затемняем при клике */
+    background: linear-gradient(135deg, rgba(217, 119, 54, 1), rgba(217, 119, 54, 0.85));
+}
+
+/* Уникальное расположение для кнопки ВНУТРИ шторки */
+.btn-main {
+    width: 100%; 
+    padding: 18px; 
+}
+
+/* Уникальное расположение для ПЛАВАЮЩЕЙ кнопки (Корзина) */
+.fake-main-btn {
+    display: none; 
+    position: fixed; 
+    bottom: 25px; 
+    left: 20px; 
+    right: 20px; 
+    padding: 18px;
+    z-index: 1000; /* Она выше каталога (100), но ниже шторок (2000+) */
+}
+.btn-secondary { background: #F3E9DC; color: #8B5E3C; border: none; padding: 16px; border-radius: 16px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100px; }
+
+/* Кастомный ползунок */
+.filter-section { margin-bottom: 25px; flex-shrink: 0; }
+.filter-section-title { font-size: 14px; font-weight: bold; margin-bottom: 15px; display: flex; justify-content: space-between; }
+.range-slider { position: relative; height: 30px; }
+.slider-track { position: absolute; width: 100%; height: 6px; background: #E8C396; border-radius: 3px; top: 50%; transform: translateY(-50%); }
+.range-slider input[type="range"] { position: absolute; width: 100%; height: 100%; top: 0; -webkit-appearance: none; background: transparent; pointer-events: none; margin: 0; }
+.range-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 24px; height: 24px; border-radius: 50%; background: #D97736; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
+
+/* Кастомные чекбоксы */
+.brand-list { max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 10px; }
+.brand-list::-webkit-scrollbar { width: 4px; }
+.brand-list::-webkit-scrollbar-thumb { background-color: #E8C396; border-radius: 4px; }
+.custom-checkbox { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: bold; cursor: pointer; }
+.custom-checkbox input { display: none; }
+.checkmark { width: 20px; height: 20px; border: 2px solid #E8C396; border-radius: 6px; background: white; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+.custom-checkbox input:checked + .checkmark { background: #D97736; border-color: #D97736; }
+.custom-checkbox input:checked + .checkmark::after { content: "✓"; color: white; font-size: 14px; font-weight: 900; }
+
+.filter-actions { display: flex; gap: 10px; margin-top: auto; padding-top: 10px; flex-shrink: 0; }
+
+.loader { border: 4px solid #f3f3f3; border-top: 4px solid #D97736; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 100px auto; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- ЛИПКАЯ ПАНЕЛЬ (Glassmorphism) --- */
+.sticky-panel {
+    position: sticky;
+    top: 0;
+    z-index: 9;
+    
+    /* 1. Увеличили прозрачность: с 0.75 до 0.6 */
+    background: rgba(255, 248, 238, 0.6); 
+    
+    /* 2. Немного усилили размытие для лучшего эффекта (с 12px до 16px) */
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px); 
+    
+    /* 3. Добавили мягкую тень для отделения от контента */
+    box-shadow: 0 4px 12px rgba(92, 58, 33, 0.1);
+    
+    /* Растягиваем панель на весь экран */
+    margin: 0 -15px 15px -15px; 
+    padding: 10px 15px 15px 15px;
+    
+    /* Сделали границу чуть нежнее */
+    border-bottom: 1px solid rgba(232, 195, 150, 0.2);
+}
+
+/* Немного поправим отступы, так как они теперь внутри новой панели */
+.nav-bar { margin-bottom: 10px; }
+.controls-panel { margin-bottom: 0; }
+
+/* --- КНОПКА НАВЕРХ --- */
+.scroll-top-btn {
+    position: fixed;
+    bottom: 90px; /* Чтобы не перекрывалась кнопкой корзины */
+    right: -60px; /* По умолчанию спрятана за правым краем экрана */
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    /* Кнопка тоже будет слегка стеклянной */
+    background: rgba(217, 119, 54, 0.85); 
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(217, 119, 54, 0.4);
+    cursor: pointer;
+    /* Анимация пружинистого выезда */
+    transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 8;
+}
+
+/* Класс, который JS добавит при скролле вниз */
+.scroll-top-btn.visible {
+    right: 20px; 
+}
+
+/* --- СТИЛИ ДЛЯ КОРЗИНЫ И ОФОРМЛЕНИЯ (Версия 4.2) --- */
+
+/* Экраны (поверх всего) */
+.app-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FFF8EE; z-index: 100; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); overflow-y: auto; padding: 20px; box-sizing: border-box; padding-bottom: 100px; }
+.app-screen.active { transform: translateX(0); }
+.screen-header { display: flex; align-items: center; margin-bottom: 25px; }
+.back-btn { font-size: 14px; font-weight: bold; color: #D97736; cursor: pointer; padding: 10px 15px 10px 0; margin-right: 10px; }
+
+/* Карточка товара в корзине */
+.cart-list { display: flex; flex-direction: column; gap: 12px; }
+.cart-item { background: white; border-radius: 16px; padding: 15px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(232, 195, 150, 0.4); box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05); }
+.cart-item-info { flex-grow: 1; padding-right: 10px; }
+.cart-item .title { font-size: 14px; font-weight: 900; margin-bottom: 4px; }
+.cart-item .subtitle { font-size: 11px; color: #8B5E3C; margin-bottom: 8px; font-weight: bold; text-transform: uppercase; }
+.cart-item .price { font-size: 15px; font-weight: 900; color: #D97736; }
+
+/* Мини-кнопки + / - в корзине */
+.qty-controls.small { padding: 4px; margin: 0; border-radius: 12px; width: auto; gap: 10px; }
+.qty-controls.small .qty-btn { width: 30px; height: 30px; font-size: 16px; border-radius: 8px; }
+.qty-controls.small .qty-value { font-size: 14px; }
+.cart-total-block { margin-top: 25px; font-size: 20px; font-weight: 900; text-align: right; padding-top: 15px; border-top: 2px dashed rgba(232, 195, 150, 0.5); }
+
+/* Оформление: Табы и Форма */
+.delivery-tabs { display: flex; background: rgba(232, 195, 150, 0.2); border-radius: 16px; padding: 4px; margin-bottom: 20px; }
+.delivery-tabs .tab { flex: 1; text-align: center; padding: 12px; font-size: 14px; font-weight: bold; border-radius: 12px; cursor: pointer; color: #8B5E3C; transition: 0.2s; }
+.delivery-tabs .tab.active { background: white; color: #D97736; box-shadow: 0 2px 8px rgba(92, 58, 33, 0.1); }
+.checkout-info { background: white; border-radius: 16px; padding: 20px; border: 1px solid rgba(232, 195, 150, 0.4); font-size: 14px; line-height: 1.5; box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05); }
+.address-input { width: 100%; padding: 15px; border: 2px solid #E8C396; border-radius: 12px; font-size: 14px; font-family: inherit; box-sizing: border-box; outline: none; margin-bottom: 15px; }
+.address-input:focus { border-color: #D97736; }
+.delivery-cost { font-size: 14px; font-weight: 900; color: #5C3A21; }
+
+
+.toast {
+    position: fixed;
+    /* Уводим сильно выше экрана, чтобы точно ничего не торчало */
+    top: -120px; 
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(46, 204, 113, 0.95);
+    color: white;
+    padding: 12px 25px;
+    border-radius: 100px;
+    font-weight: bold;
+    z-index: 9999;
+    transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.toast.show {
+    top: 20px; /* Выплывает сверху */
+}
+
+/* Красная точка на аватаре */
+.avatar-container { position: relative; }
+.notification-dot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    background: #FF3B30;
+    border: 2px solid #FFF8EE;
+    border-radius: 50%;
+    display: none; /* По умолчанию скрыта */
+}
+
+/* --- СВАЙП ДЛЯ УДАЛЕНИЯ (Корзина) --- */
+.cart-item-wrapper {
+    position: relative;
+    background: #FF3B30; /* Ярко-красный цвет удаления (как в iOS) */
+    border-radius: 16px;
+    overflow: hidden; /* Чтобы красные углы не торчали за пределы карточки */
+}
+
+/* Красная кнопка (спрятана под карточкой) */
+.cart-item-bg {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+.cart-item-bg svg {
+    margin-bottom: 4px;
+}
+
+/* Обновляем саму карточку, чтобы она могла двигаться */
+.cart-item {
+    background: white;
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid rgba(232, 195, 150, 0.4);
+    box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05);
+    position: relative;
+    z-index: 2; /* Карточка всегда выше красного фона */
+    /* Добавляем возможность плавно возвращаться на место */
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transform: translateX(0); 
+}
+
+/* --- ЭКРАН ПРОФИЛЯ --- */
+.profile-content {
+    padding-bottom: 100px;
+    overflow-y: auto;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.profile-avatar-big {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #E8C396;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #5C3A21;
+    overflow: hidden;
+    border: 2px solid #D97736;
+}
+
+.profile-avatar-big img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-info h3 {
+    margin: 0 0 5px 0;
+    font-size: 20px;
+    color: #5C3A21;
+}
+
+.profile-status-badge {
+    display: inline-block;
+    background: rgba(217, 119, 54, 0.15);
+    color: #D97736;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 900;
+    color: #5C3A21;
+    margin-bottom: 12px;
+}
+
+.active-order-card {
+    background: white;
+    border: 1px solid rgba(232, 195, 150, 0.4);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05);
+    margin-bottom: 25px;
+}
+
+.no-order-text {
+    color: #8B5E3C;
+    font-size: 14px;
+    margin-bottom: 15px;
+}
+
+.btn-main.small-btn {
+    padding: 12px;
+    font-size: 14px;
+    width: auto;
+    display: inline-block;
+    padding-left: 25px;
+    padding-right: 25px;
+}
+
+/* Баннер */
+.promo-banner {
+    background: linear-gradient(135deg, #D97736, #E8C396);
+    border-radius: 16px;
+    padding: 20px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 20px rgba(217, 119, 54, 0.3);
+}
+
+.banner-text h4 { margin: 0 0 5px 0; font-size: 16px; }
+.banner-text p { margin: 0; font-size: 12px; opacity: 0.9; line-height: 1.4; }
+.banner-icon { font-size: 32px; }
+
+/* Меню */
+.profile-menu {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid rgba(232, 195, 150, 0.4);
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05);
+}
+
+.menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(232, 195, 150, 0.2);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menu-item:active { background: rgba(232, 195, 150, 0.1); }
+.menu-item:last-child { border-bottom: none; }
+
+.menu-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: bold;
+    color: #5C3A21;
+}
+
+.menu-icon { font-size: 18px; }
+.menu-arrow { color: #D97736; font-weight: bold; }
+
+.admin-item { background: rgba(217, 119, 54, 0.05); }
+
+/* --- Анимация раскрытия заказа --- */
+.order-details-grid {
+    display: grid;
+    grid-template-rows: 0fr; /* Скрыто по умолчанию */
+    transition: grid-template-rows 0.3s ease;
+}
+
+.order-details-grid.open {
+    grid-template-rows: 1fr; /* Раскрыто */
+}
+
+.order-details-inner {
+    overflow: hidden; /* Обязательно для плавного скрытия внутренностей */
+}
+
+/* --- Анимация стрелочки --- */
+.expand-arrow {
+    transition: transform 0.3s ease;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.expand-arrow.open {
+    transform: rotate(180deg);
+}
+
+/* --- АДМИН-ПАНЕЛЬ: Карточки и Скрытый список --- */
+.admin-order-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(232, 195, 150, 0.4);
+    box-shadow: 0 4px 12px rgba(92, 58, 33, 0.05);
+}
+
+.admin-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed rgba(232, 195, 150, 0.3);
+    padding-bottom: 12px;
+}
+
+.admin-order-id { font-weight: 900; font-size: 15px; color: #5C3A21; }
+.admin-order-date { font-size: 12px; color: #8B5E3C; font-weight: bold; }
+
+.admin-order-body {
+    margin-bottom: 15px;
+    font-size: 13px;
+    color: #5C3A21;
+    line-height: 1.5;
+}
+
+/* Анимация списка товаров внутри админки */
+.admin-order-items-grid {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s ease;
+}
+.admin-order-items-grid.open { grid-template-rows: 1fr; }
+.admin-order-items-inner { overflow: hidden; margin-bottom: 15px; }
+
+/* --- АДМИН-ПАНЕЛЬ: Кастомный статус-селект --- */
+.admin-status-wrapper { position: relative; margin-top: 10px; }
+
+.admin-status-btn {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #E8C396;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 900;
+    background: #FFF8EE;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: 0.2s;
+    box-sizing: border-box;
+}
+.admin-status-btn:active { transform: scale(0.98); }
+
+.admin-status-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 8px 25px rgba(92, 58, 33, 0.15);
+    border: 1px solid rgba(232, 195, 150, 0.4);
+    margin-top: 8px;
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: 0.2s ease;
+    overflow: hidden;
+}
+.admin-status-menu.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.admin-status-option {
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: bold;
+    border-bottom: 1px solid rgba(232, 195, 150, 0.2);
+    cursor: pointer;
+    color: #5C3A21;
+}
+.admin-status-option:last-child { border-bottom: none; }
+.admin-status-option:active { background: #fcf6ef; }
+
+/* Статистика в админке */
+.admin-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.admin-stat-card {
+    background: white;
+    padding: 12px 5px;
+    border-radius: 14px;
+    text-align: center;
+    border: 1px solid rgba(232, 195, 150, 0.4);
+    box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05);
+}
+.admin-stat-label { font-size: 10px; color: #8B5E3C; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+.admin-stat-value { font-size: 14px; font-weight: 900; color: #D97736; }
+
+/* Категории внутри состава заказа (админ) */
+.admin-item-category-title {
+    font-weight: 900; 
+    color: #D97736; 
+    margin-top: 12px; 
+    margin-bottom: 6px; 
+    font-size: 11px; 
+    text-transform: uppercase; 
+    border-bottom: 1px solid rgba(217, 119, 54, 0.1); 
+    padding-bottom: 2px;
+}
+.admin-item-series-title {
+    text-align: left; 
+    font-weight: bold; 
+    color: #5C3A21; 
+    margin-top: 6px; 
+    margin-bottom: 4px; 
+    font-size: 12px;
+}

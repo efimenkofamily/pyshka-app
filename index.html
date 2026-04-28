@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Клуб Пышка</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { background-color: #FFF8EE; color: #5C3A21; font-family: sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .logo { font-size: 70px; margin: 20px 0 10px; }
+        h1 { font-size: 24px; text-align: center; margin: 0; }
+        .subtitle { font-size: 14px; opacity: 0.8; text-align: center; margin: 10px 0 30px; line-height: 1.4; }
+        .form-group { width: 100%; max-width: 320px; margin-bottom: 15px; }
+        label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 12px; border: 2px solid #E8C396; border-radius: 12px; font-size: 16px; box-sizing: border-box; }
+        .btn { background-color: #D97736; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; max-width: 320px; font-weight: bold; font-size: 16px; margin-top: 10px; cursor: pointer; }
+        #registrationForm { display: none; width: 100%; flex-direction: column; align-items: center; }
+        #statusMessage { display: none; text-align: center; margin-top: 50px; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #D97736; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="loading" style="margin-top: 100px;">
+        <div class="loader"></div>
+    </div>
+
+    <div id="statusMessage">
+        <div class="logo">🥐⏳</div>
+        <h1 id="statusTitle">Почти готово!</h1>
+        <p class="subtitle" id="statusDesc">Твоя заявка на рассмотрении. Хитрый Корги проверяет списки...</p>
+    </div>
+
+    <div id="registrationForm">
+        <div class="logo">🥐🐶</div>
+        <h1>Клуб «Пышка»</h1>
+        <p class="subtitle">Привет! Чтобы попасть к нам, нужно заполнить небольшую анкету.</p>
+        
+        <div class="form-group">
+            <label>Как тебя зовут?</label>
+            <input type="text" id="userName" placeholder="Имя и Фамилия">
+        </div>
+        <div class="form-group">
+            <label>Откуда узнал о нас?</label>
+            <input type="text" id="userSource" placeholder="Друзья, канал и т.д.">
+        </div>
+        <button class="btn" onclick="registerUser()">Отправить заявку</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.setHeaderColor('#FFF8EE');
+
+        // --- ДАННЫЕ SUPABASE ---
+        const SB_URL = "https://hblqhusypxuoioultjfz.supabase.co";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibHFodXN5cHh1b2lvdWx0amZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTcyNDcsImV4cCI6MjA5MjUzMzI0N30.KzHgvO8x6X0MOC742Vm-gXggMnYdnms5bnSzInO9OOY"; // <-- НЕ ЗАБУДЬ ВСТАВИТЬ КЛЮЧ!
+
+        const user = tg.initDataUnsafe?.user;
+
+        async function checkUser() {
+            if (!user) {
+                document.getElementById('loading').style.display = 'none';
+                document.body.innerHTML = "<h1>Ошибка: Открой меня в Telegram!</h1>";
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SB_URL}/rest/v1/users?id=eq.${user.id}`, {
+                    headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
+                });
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.length === 0) {
+                    // Пользователя нет — показываем анкету
+                    document.getElementById('registrationForm').style.display = 'flex';
+                } else {
+                    const status = data[0].status;
+                    // ПУСКАЕМ И ПОКУПАТЕЛЕЙ, И АДМИНОВ
+                    if (status === 'approved' || status === 'admin') {
+                        window.location.href = "catalog.html"; 
+                    } else if (status === 'blocked') {
+                        showStatus("Вход закрыт", "К сожалению, доступ в клуб ограничен.");
+                    } else {
+                        // pending
+                        showStatus("Заявка в очереди", "Хитрый Корги еще не успел рассмотреть твою анкету. Загляни чуть позже!");
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+                tg.showAlert("Ошибка связи с базой.");
+            }
+        }
+
+        async function registerUser() {
+            const name = document.getElementById('userName').value;
+            const source = document.getElementById('userSource').value;
+
+            if (!name || !source) {
+                tg.showAlert("Заполни все поля!");
+                return;
+            }
+
+            tg.MainButton.showProgress();
+            
+            const newUser = {
+                id: user.id,
+                username: user.username || "unknown",
+                full_name: name,
+                source: source,
+                status: 'pending'
+            };
+
+            const response = await fetch(`${SB_URL}/rest/v1/users`, {
+                method: 'POST',
+                headers: { 
+                    "apikey": SB_KEY, 
+                    "Authorization": `Bearer ${SB_KEY}`, 
+                    "Content-Type": "application/json",
+                    "Prefer": "return=minimal"
+                },
+                body: JSON.stringify(newUser)
+            });
+
+            tg.MainButton.hideProgress();
+
+            if (response.ok) {
+                showStatus("Заявка отправлена!", "Теперь просто подожди одобрения. Мы сообщим!");
+            } else {
+                tg.showAlert("Ошибка при регистрации.");
+            }
+        }
+
+        function showStatus(title, desc) {
+            document.getElementById('registrationForm').style.display = 'none';
+            document.getElementById('statusMessage').style.display = 'block';
+            document.getElementById('statusTitle').innerText = title;
+            document.getElementById('statusDesc').innerText = desc;
+        }
+
+        // Запуск проверки при открытии
+        checkUser();
+    </script>
+</body>
+</html>

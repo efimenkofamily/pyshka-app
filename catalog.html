@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Каталог Пышка</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="catalog.css?v=9">
+</head>
+<body>
+
+    <div id="toast" class="toast">Ваш заказ оформлен!</div>
+
+    <div class="header">
+        <div class="header-left">
+            <div class="corgi-logo">🐶</div>
+            <div class="header-text">
+                <p>Клуб</p>
+                <h1>Пышка</h1>
+            </div>
+        </div>
+        <div id="userAvatar"></div>
+    </div>
+
+    <div class="sticky-panel">
+        <div class="nav-bar">
+            <div class="search-btn" onclick="toggleSearch()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5C3A21" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </div>
+            <div class="categories" id="catList"></div>
+        </div>
+
+        <div class="search-container" id="searchContainer">
+            <input type="text" class="search-input" id="searchInput" placeholder="Поиск вкуса, линейки..." oninput="handleSearch()">
+            <div class="search-status" id="searchStatus"></div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="filter-btn" id="filterBtn" onclick="openFilterSheet()">
+                <span>Фильтры</span>
+                <span class="filter-arrow" id="filterArrow">&gt;</span>
+                <span class="filter-count" id="filterCount" style="display: none;">0</span>
+            </div>
+            <div class="sort-container">
+                <div class="sort-btn" onclick="toggleSortMenu(event)">⇅ <span id="currentSortText">Сортировка</span></div>
+                <div class="sort-menu" id="sortMenu">
+                    <div class="sort-option" onclick="applySort('default')">По умолчанию</div>
+                    <div class="sort-option" onclick="applySort('price_asc')">Сначала дешевые</div>
+                    <div class="sort-option" onclick="applySort('price_desc')">Сначала дорогие</div>
+                    <div class="sort-option" onclick="applySort('strength_desc')">Сначала крепкие</div>
+                    <div class="sort-option" onclick="applySort('strength_asc')">Сначала легкие</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="loader" class="loader"></div>
+    <div id="productGrid"></div>
+
+    <div class="overlay" id="overlay" onclick="closeSheets()"></div>
+    
+    <div class="bottom-sheet" id="bottomSheet">
+        <div class="sheet-handle"></div>
+        <h2 class="sheet-title" id="sheetTitle">Вкус</h2>
+        <div class="sheet-subtitle" id="sheetSubtitle">Линейка</div>
+        <div class="sheet-price" id="sheetPrice">0 р.</div>
+        
+        <div class="qty-controls">
+            <button class="qty-btn" onclick="changeQty(-1)">-</button>
+            <div class="qty-value" id="sheetQty">1</div>
+            <button class="qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+        
+        <button class="btn-main" onclick="addToCart()">Добавить на <span id="sheetTotal">0</span> р.</button>
+    </div>
+
+    <div class="bottom-sheet" id="filterSheet">
+        <div class="sheet-handle"></div>
+        <h2 class="sheet-title" style="margin-bottom: 20px;">Фильтры</h2>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Крепость: <span id="strengthValues">0 - 100 мг</span></div>
+            <div class="range-slider">
+                <div class="slider-track" id="sliderTrack"></div>
+                <input type="range" id="minStrength" min="0" max="100" value="0" step="5" oninput="updateRange()">
+                <input type="range" id="maxStrength" min="0" max="100" value="100" step="5" oninput="updateRange()">
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <div class="filter-section-title">Линейки и Бренды</div>
+            <div class="brand-list" id="brandList">
+                </div>
+        </div>
+
+        <div class="filter-actions">
+            <button class="btn-secondary" onclick="resetFilters()">Сбросить</button>
+            <button class="btn-main" style="flex-grow: 1;" onclick="applyFilters()">Применить</button>
+        </div>
+    </div>
+
+    <div id="cartScreen" class="app-screen">
+        <div class="screen-header">
+            <span class="back-btn" onclick="closeCart()">← В каталог</span>
+            <h2 style="margin:0; font-weight: 900;">Твой заказ</h2>
+        </div>
+        <div class="cart-list" id="cartList"></div>
+        <div class="cart-total-block">
+            Итого: <span id="cartTotalSum" style="color: #D97736;">0</span> р.
+        </div>
+    </div>
+
+    <div id="checkoutScreen" class="app-screen">
+        <div class="screen-header">
+            <span class="back-btn" onclick="closeCheckout()">← В корзину</span>
+            <h2 style="margin:0; font-weight: 900;">Оформление</h2>
+        </div>
+        <div class="checkout-form">
+            <div class="delivery-tabs">
+                <div class="tab active" id="tabPickup" onclick="setDeliveryMode('pickup')">Самовывоз</div>
+                <div class="tab" id="tabDelivery" onclick="setDeliveryMode('delivery')">Доставка</div>
+            </div>
+            
+            <div id="pickupInfo" class="checkout-info">
+                📍 <b>Точка выдачи</b><br><br>
+                Точный адрес и инструкцию по получению пришлет бот, как только заказ будет собран и готов к выдаче.
+            </div>
+
+            <div id="deliveryInfo" class="checkout-info" style="display: none;">
+                <input type="text" id="deliveryAddress" placeholder="Введи адрес доставки (улица, дом, кв)..." class="address-input">
+                <div class="delivery-cost" id="deliveryCostText">Доставка: рассчитывается...</div>
+                <p style="font-size: 11px; opacity: 0.6; margin-top: 10px;">Бесплатная доставка при заказе от 60 р.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="fakeMainButton" class="fake-main-btn" onclick="mainButtonHandler()"></div>
+
+    <div id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+    </div>
+
+    <div id="profileScreen" class="app-screen">
+        <div class="screen-header">
+            <span class="back-btn" onclick="closeProfile()">← В каталог</span>
+            <h2 style="margin:0; font-weight: 900;">Профиль</h2>
+        </div>
+
+        <div class="profile-content">
+            <div class="profile-header">
+                <div id="profileAvatarBig" class="profile-avatar-big"></div>
+                <div class="profile-info">
+                    <h3 id="profileName">Имя пользователя</h3>
+                    <div class="profile-status-badge" id="profileStatusBadge">Покупатель</div>
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <div class="section-title">Текущий заказ</div>
+                <div class="active-order-card" id="activeOrderCard">
+                    <div class="no-order-text">Сейчас у тебя нет активных заказов</div>
+                    <button class="btn-main small-btn" onclick="closeProfile()">Сделать заказ +</button>
+                </div>
+            </div>
+
+            <div class="promo-banner">
+                <div class="banner-text">
+                    <h4>Зарабатывай с нами!</h4>
+                    <p>Приглашай друзей и получай бонусы на счет</p>
+                </div>
+                <div class="banner-icon">🎁</div>
+            </div>
+
+            <div class="profile-menu">
+                <div class="menu-item">
+                    <div class="menu-item-left"><span class="menu-icon">📦</span> История заказов</div>
+                    <span class="menu-arrow">&gt;</span>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-left"><span class="menu-icon">🤝</span> Реферальная система</div>
+                    <span class="menu-arrow">&gt;</span>
+                </div>
+                <div class="menu-item">
+                    <div class="menu-item-left"><span class="menu-icon">💬</span> Связь с поддержкой</div>
+                    <span class="menu-arrow">&gt;</span>
+                </div>
+                
+                <div class="menu-item admin-item" id="adminMenuBtn" style="display: none;" onclick="openAdminPanel()">
+                    <div class="menu-item-left"><span class="menu-icon">⚙️</span> Панель управления</div>
+                    <span class="menu-arrow">&gt;</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="catalog.js?v=8" defer></script>
+
+    <div id="adminScreen" class="app-screen">
+        <div class="screen-header">
+            <span class="back-btn" onclick="closeAdminPanel()">← В профиль</span>
+            <h2 style="margin:0; font-weight: 900;">Админка</h2>
+        </div>
+        
+        <div class="delivery-tabs" style="margin-bottom: 20px;">
+            <div class="tab active" id="adminTabOrders" onclick="switchAdminTab('orders')">Заказы</div>
+            <div class="tab" id="adminTabCatalog" onclick="switchAdminTab('catalog')">Товары</div>
+            <div class="tab" id="adminTabSettings" onclick="switchAdminTab('settings')">Настройки</div>
+        </div>
+
+        <div id="adminContent"></div>
+    </div>
+</body>
+</html>
