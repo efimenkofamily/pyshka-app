@@ -993,15 +993,29 @@ function switchAdminTab(tab) {
 
 async function loadAdminUsers() {
     try {
-        // Грузим всех юзеров (сначала новые)
         const response = await fetch(`${SB_URL}/rest/v1/users?order=created_at.desc`, {
             headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
         });
-        const users = await response.json();
-        renderAdminUsers(users);
+        
+        const data = await response.json();
+        
+        // Защита от ошибок Supabase (например, проблема с доступами)
+        if (data.error) {
+            console.error("Supabase Error:", data.error);
+            document.getElementById('adminContent').innerHTML = `<div style="text-align:center; padding: 20px; color: red;">Ошибка БД: ${data.error.message}</div>`;
+            return;
+        }
+        
+        // Защита от случаев, если вернулся не массив
+        if (!Array.isArray(data)) {
+            document.getElementById('adminContent').innerHTML = `<div style="text-align:center; padding: 20px; color: red;">Данные не являются списком</div>`;
+            return;
+        }
+
+        renderAdminUsers(data);
     } catch (e) {
         console.error("Ошибка загрузки пользователей:", e);
-        document.getElementById('adminContent').innerHTML = '<div style="text-align:center; padding: 20px; color: red;">Ошибка сети</div>';
+        document.getElementById('adminContent').innerHTML = '<div style="text-align:center; padding: 20px; color: red;">Ошибка сети (см. F12)</div>';
     }
 }
 
@@ -1025,7 +1039,7 @@ function renderAdminUsers(users) {
         const color = statusColors[u.status] || '#8B5E3C';
 
         html += `
-        <div class="admin-order-card" style="border-left: 4px solid ${color};">
+        <div class="admin-order-card" style="border-left: 4px solid ${color}; position: relative;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
                 <div>
                     <div style="font-weight:900; font-size:15px; color:#5C3A21;">${u.full_name}</div>
@@ -1035,6 +1049,10 @@ function renderAdminUsers(users) {
                     <div style="font-size:12px; color:#8B5E3C; margin-top:2px;"><b>Откуда:</b> ${u.source || 'Не указано'}</div>
                     <div style="font-size:11px; color:#aab7b8; margin-top:2px;">Зарег: ${new Date(u.created_at).toLocaleDateString('ru-RU')}</div>
                 </div>
+                
+                <div style="cursor: pointer; font-size: 18px; padding: 5px; opacity: 0.8;" 
+                     onclick="deleteUser(${u.id}, '${u.full_name.replace(/'/g, "\\'")}')" 
+                     title="Удалить пользователя">🗑️</div>
             </div>
             
             <div style="margin-top: 15px; border-top: 1px dashed rgba(232, 195, 150, 0.3); padding-top: 15px;">
@@ -1066,6 +1084,34 @@ async function changeUserStatus(userId, newStatus) {
     } catch (e) {
         console.error("Ошибка смены статуса:", e);
         alert("Не удалось обновить статус в базе.");
+    }
+}
+
+async function deleteUser(userId, userName) {
+    // Спрашиваем подтверждение, так как действие необратимо
+    if (!confirm(`🚨 Точно удалить пользователя "${userName}" навсегда?\n\nВместе с ним могут удалиться и все его заказы.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${SB_URL}/rest/v1/users?id=eq.${userId}`, {
+            method: 'DELETE',
+            headers: { 
+                "apikey": SB_KEY, 
+                "Authorization": `Bearer ${SB_KEY}` 
+            }
+        });
+
+        if (response.ok) {
+            showToast("Пользователь удален 🗑️");
+            loadAdminUsers(); // Сразу перерисовываем список, чтобы он исчез с экрана
+        } else {
+            const err = await response.json();
+            alert("Ошибка удаления в базе: " + (err.message || "Неизвестная ошибка"));
+        }
+    } catch (e) {
+        console.error("Ошибка при удалении:", e);
+        alert("Не удалось отправить запрос на удаление.");
     }
 }
 
@@ -1397,19 +1443,3 @@ async function saveAdminSettings() {
     }
 }
 
-// Обнови переключатель табов, чтобы он вызывал отрисовку настроек
-function switchAdminTab(tab) {
-    document.querySelectorAll('#adminScreen .tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('adminContent').innerHTML = '<div class="loader"></div>';
-    
-    if (tab === 'orders') {
-        document.getElementById('adminTabOrders').classList.add('active');
-        loadAdminOrders();
-    } else if (tab === 'catalog') {
-        document.getElementById('adminTabCatalog').classList.add('active');
-        document.getElementById('adminContent').innerHTML = '<div style="text-align:center; padding:40px; color:#8B5E3C;">Раздел товаров в разработке 🛠</div>';
-    } else if (tab === 'settings') {
-        document.getElementById('adminTabSettings').classList.add('active');
-        renderAdminSettings(); // <--- Теперь вызываем нашу функцию!
-    }
-}

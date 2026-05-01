@@ -13,45 +13,59 @@ serve(async (req) => {
     const { type, table, record, old_record } = payload;
 
     // ==========================================
-    // ЛОГИКА ДЛЯ ПОЛЬЗОВАТЕЛЕЙ (РЕГИСТРАЦИЯ)
+    // ЛОГИКА ДЛЯ ПОЛЬЗОВАТЕЛЕЙ
     // ==========================================
-    if (table === 'users' && type === 'INSERT') {
-        const newUser = record;
-        
-        // Отправляем пуш только если статус 'pending' (ждет апрува)
-        if (newUser.status === 'pending') {
-            // Ищем всех админов в базе
-            const { data: admins } = await supabase
-                .from('users')
-                .select('id')
-                .eq('status', 'admin');
+    if (table === 'users') {
+        // Сценарий 1: Новая регистрация (Стучится новичок)
+        if (type === 'INSERT' && record.status === 'pending') {
+            const { data: admins } = await supabase.from('users').select('id').eq('status', 'admin');
 
             if (admins && admins.length > 0) {
                 const message = `👋 <b>Стучится новый пользователь!</b>\n\n` +
-                                `👤 Имя: <b>${newUser.full_name}</b>\n` +
-                                `🔗 Юзернейм: @${newUser.username}\n` +
-                                `📢 Откуда узнал: <i>${newUser.source}</i>\n\n` +
+                                `👤 Имя: <b>${record.full_name}</b>\n` +
+                                `🔗 Юзернейм: @${record.username}\n` +
+                                `📢 Откуда узнал: <i>${record.source}</i>\n\n` +
                                 `Зайди в Админку ➔ вкладка «Пользователи», чтобы проверить и принять заявку.`;
 
-                // Делаем рассылку всем админам
                 for (const admin of admins) {
                     await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: admin.id,
-                            text: message,
-                            parse_mode: 'HTML'
-                        })
+                        body: JSON.stringify({ chat_id: admin.id, text: message, parse_mode: 'HTML' })
                     });
                 }
             }
+        } 
+        // Сценарий 2: Админ изменил статус пользователя
+        else if (type === 'UPDATE' && old_record && old_record.status !== record.status) {
+            let userMessage = "";
+
+            if (record.status === 'approved') {
+                userMessage = `Добро пожаловать в клуб любителей Корги "Пышки". Готов(-а) дунуть? :)`;
+            } else if (record.status === 'admin') {
+                userMessage = `Ого, ты теперь один из главных Корги, поздравляем, ты теперь админ ;)`;
+            } else if (record.status === 'blocked') {
+                userMessage = `Извини, но доступ для тебя закрыт :(`;
+            }
+
+            if (userMessage && TELEGRAM_BOT_TOKEN) {
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        chat_id: record.id, 
+                        text: userMessage,
+                        parse_mode: 'HTML'
+                    })
+                });
+            }
         }
+        
         return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
     }
 
     // ==========================================
-    // ЛОГИКА ДЛЯ ЗАКАЗОВ (ПРЕДЫДУЩИЙ КОД)
+    // ЛОГИКА ДЛЯ ЗАКАЗОВ
     // ==========================================
     if (table === 'orders') {
         const chatId = record.user_id;
@@ -114,7 +128,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true }), { headers: { "Content-Type": "application/json" } });
     }
 
-    // Если таблица не относится ни к заказам, ни к юзерам
     return new Response('Ignored table');
 
   } catch (err) {
