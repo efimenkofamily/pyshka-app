@@ -970,7 +970,6 @@ function closeAdminPanel() {
 }
 
 function switchAdminTab(tab) {
-    // Сбрасываем активные табы
     document.querySelectorAll('#adminScreen .tab').forEach(t => t.classList.remove('active'));
     document.getElementById('adminContent').innerHTML = '<div class="loader"></div>';
     
@@ -980,9 +979,93 @@ function switchAdminTab(tab) {
     } else if (tab === 'catalog') {
         document.getElementById('adminTabCatalog').classList.add('active');
         document.getElementById('adminContent').innerHTML = '<div style="text-align:center; padding:40px; color:#8B5E3C;">Раздел товаров в разработке 🛠</div>';
+    } else if (tab === 'users') {
+        // НОВЫЙ БЛОК ДЛЯ ЮЗЕРОВ
+        document.getElementById('adminTabUsers').classList.add('active');
+        loadAdminUsers();
     } else if (tab === 'settings') {
         document.getElementById('adminTabSettings').classList.add('active');
-        document.getElementById('adminContent').innerHTML = '<div style="text-align:center; padding:40px; color:#8B5E3C;">Раздел настроек в разработке ⚙️</div>';
+        renderAdminSettings(); 
+    }
+}
+
+// --- БЛОК УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ ---
+
+async function loadAdminUsers() {
+    try {
+        // Грузим всех юзеров (сначала новые)
+        const response = await fetch(`${SB_URL}/rest/v1/users?order=created_at.desc`, {
+            headers: { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` }
+        });
+        const users = await response.json();
+        renderAdminUsers(users);
+    } catch (e) {
+        console.error("Ошибка загрузки пользователей:", e);
+        document.getElementById('adminContent').innerHTML = '<div style="text-align:center; padding: 20px; color: red;">Ошибка сети</div>';
+    }
+}
+
+function renderAdminUsers(users) {
+    const container = document.getElementById('adminContent');
+    if (!users || users.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding: 40px 0; color:#8B5E3C; font-weight:bold;">База пользователей пуста</div>`;
+        return;
+    }
+
+    let html = '<div style="padding-bottom: 100px;">';
+    
+    users.forEach(u => {
+        // Цвета для разных статусов (левая полоска карточки)
+        const statusColors = {
+            'pending': '#f39c12',  // Оранжевый
+            'approved': '#2ecc71', // Зеленый
+            'blocked': '#FF3B30',  // Красный
+            'admin': '#9b59b6'     // Фиолетовый
+        };
+        const color = statusColors[u.status] || '#8B5E3C';
+
+        html += `
+        <div class="admin-order-card" style="border-left: 4px solid ${color};">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                <div>
+                    <div style="font-weight:900; font-size:15px; color:#5C3A21;">${u.full_name}</div>
+                    <div style="font-size:12px; color:#8B5E3C; margin-top:4px;">
+                        <a href="tg://user?id=${u.id}" style="color:#3498db; text-decoration:none;">@${u.username}</a> | ID: ${u.id}
+                    </div>
+                    <div style="font-size:12px; color:#8B5E3C; margin-top:2px;"><b>Откуда:</b> ${u.source || 'Не указано'}</div>
+                    <div style="font-size:11px; color:#aab7b8; margin-top:2px;">Зарег: ${new Date(u.created_at).toLocaleDateString('ru-RU')}</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; border-top: 1px dashed rgba(232, 195, 150, 0.3); padding-top: 15px;">
+                <label style="font-size: 11px; font-weight: bold; color: #8B5E3C; margin-bottom: 5px; display: block;">СТАТУС ДОСТУПА:</label>
+                <select class="address-input" style="margin:0; padding:10px; font-size:13px; font-weight:bold; color:${color}; border-color:${color}; outline:none;" onchange="changeUserStatus(${u.id}, this.value)">
+                    <option value="pending" ${u.status === 'pending' ? 'selected' : ''}>⏳ Ожидает апрува</option>
+                    <option value="approved" ${u.status === 'approved' ? 'selected' : ''}>✅ Принят (Покупатель)</option>
+                    <option value="admin" ${u.status === 'admin' ? 'selected' : ''}>👑 Администратор</option>
+                    <option value="blocked" ${u.status === 'blocked' ? 'selected' : ''}>🚫 Заблокирован</option>
+                </select>
+            </div>
+        </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function changeUserStatus(userId, newStatus) {
+    try {
+        await fetch(`${SB_URL}/rest/v1/users?id=eq.${userId}`, {
+            method: 'PATCH',
+            headers: { "Content-Type": "application/json", "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}` },
+            body: JSON.stringify({ status: newStatus })
+        });
+        showToast("Статус пользователя изменен! 👤");
+        // Обновлять весь список не обязательно, цвет select'а изменится при следующем заходе, 
+        // но можно и вызвать loadAdminUsers() для красоты
+    } catch (e) {
+        console.error("Ошибка смены статуса:", e);
+        alert("Не удалось обновить статус в базе.");
     }
 }
 
