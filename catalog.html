@@ -144,6 +144,28 @@
         </svg>
     </div>
 
+    <div id="closedScreen" class="app-screen" style="display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 100vh; padding: 20px;">
+        <div style="font-size: 60px; margin-bottom: 20px;">🐶☁️</div>
+        <h1 style="color: #5C3A21; font-weight: 900; margin-bottom: 10px;">Магазин отдыхает</h1>
+        <p id="closedStatusText" style="color: #8B5E3C; font-size: 14px; margin-bottom: 30px;">
+            Ждите анонса следующего дропа!
+        </p>
+        
+        <div id="dropTimerContainer" style="display: none; margin-bottom: 40px;">
+            <div style="font-size: 12px; font-weight: bold; color: #D97736; margin-bottom: 10px; text-transform: uppercase;">До открытия:</div>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <div class="timer-box"><span id="timerDays">00</span><small>дн</small></div>
+                <div class="timer-box"><span id="timerHours">00</span><small>час</small></div>
+                <div class="timer-box"><span id="timerMins">00</span><small>мин</small></div>
+                <div class="timer-box"><span id="timerSecs">00</span><small>сек</small></div>
+            </div>
+        </div>
+
+        <button class="btn-main" onclick="showScreen('profileScreen')" style="width: 80%; max-width: 300px; margin-top: 20px;">
+            Перейти в профиль 👤
+        </button>
+    </div>
+
     <div id="profileScreen" class="app-screen">
         <div class="screen-header">
             <span class="back-btn" onclick="closeProfile()">← В каталог</span>

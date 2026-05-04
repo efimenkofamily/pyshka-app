@@ -613,3 +613,31 @@ body { background-color: #FFF8EE; color: #5C3A21; font-family: sans-serif; margi
     margin-bottom: 4px; 
     font-size: 12px;
 }
+
+/* --- СТИЛИ ДЛЯ ТАЙМЕРА ДРОПА --- */
+.timer-box {
+    background: #FFF8EE;
+    border: 2px solid #E8C396;
+    border-radius: 12px;
+    padding: 10px;
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(92, 58, 33, 0.05);
+}
+
+.timer-box span {
+    font-size: 24px;
+    font-weight: 900;
+    color: #5C3A21;
+    line-height: 1;
+}
+
+.timer-box small {
+    font-size: 10px;
+    color: #8B5E3C;
+    margin-top: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+}

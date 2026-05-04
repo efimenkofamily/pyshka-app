@@ -50,8 +50,64 @@ let STORE_SETTINGS = {
     deliveryCost: 15,
     defaultMargin: 1.7,
     categoryMargins: { "Жидкости": 1.7, "Расходники": 1.5, "Устройства": 1.3 },
-    editLockStatus: 3 // <--- Добавили сюда
+    editLockStatus: 2,
+    openDate: null,
+    closeDate: null
 };
+
+
+    // --- ШАГ 4: МОЗГ ТАЙМЕРА И ПРОВЕРКИ ---
+let timerInterval = null;
+
+function checkStoreStatus() {
+    if (currentUserData && currentUserData.status === 'admin') return true;
+
+    const now = new Date();
+    const openTime = STORE_SETTINGS.openDate ? new Date(STORE_SETTINGS.openDate) : null;
+    const closeTime = STORE_SETTINGS.closeDate ? new Date(STORE_SETTINGS.closeDate) : null;
+
+    if (!openTime || !closeTime) return false;
+    if (now >= openTime && now <= closeTime) return true;
+    return false; 
+}
+
+function startDropTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    const openTime = STORE_SETTINGS.openDate ? new Date(STORE_SETTINGS.openDate).getTime() : null;
+    const container = document.getElementById('dropTimerContainer');
+    const statusText = document.getElementById('closedStatusText');
+
+    if (!openTime || openTime < new Date().getTime()) {
+        if(container) container.style.display = 'none';
+        if(statusText) statusText.innerText = "Ждите анонса следующего дропа! Включайте уведомления 🔔";
+        return;
+    }
+
+    if(container) container.style.display = 'block';
+    if(statusText) statusText.innerText = "Мы готовим для вас кое-что вкусное. Открытие через:";
+
+    timerInterval = setInterval(() => {
+        const now = new Date().getTime();
+        const distance = openTime - now;
+
+        if (distance < 0) {
+            clearInterval(timerInterval);
+            location.reload(); 
+            return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((distance % (1000 * 60)) / 1000);
+
+        document.getElementById('timerDays').innerText = days < 10 ? '0' + days : days;
+        document.getElementById('timerHours').innerText = hours < 10 ? '0' + hours : hours;
+        document.getElementById('timerMins').innerText = mins < 10 ? '0' + mins : mins;
+        document.getElementById('timerSecs').innerText = secs < 10 ? '0' + secs : secs;
+    }, 1000);
+}
 
 // Новый массив для хранения статусов из БД
 let ORDER_STATUSES = [];
@@ -121,11 +177,13 @@ async function loadProducts() {
         const configData = await configResp.json();
         if (configData && configData.length > 0) {
             const db = configData[0];
-            STORE_SETTINGS.freeDeliveryThreshold = db.free_delivery_threshold;
-            STORE_SETTINGS.deliveryCost = db.delivery_cost;
-            STORE_SETTINGS.defaultMargin = db.default_margin;
-            if (db.category_margins) STORE_SETTINGS.categoryMargins = db.category_margins;
-            if (db.edit_lock_status) STORE_SETTINGS.editLockStatus = db.edit_lock_status;
+            STORE_SETTINGS.freeDeliveryThreshold = db.free_delivery_threshold || 60;
+            STORE_SETTINGS.deliveryCost = db.delivery_cost || 15;
+            STORE_SETTINGS.defaultMargin = db.default_margin || 1.7;
+            STORE_SETTINGS.categoryMargins = db.category_margins || STORE_SETTINGS.categoryMargins;
+            STORE_SETTINGS.editLockStatus = db.edit_lock_status || 2;
+            STORE_SETTINGS.openDate = db.open_date || null;
+            STORE_SETTINGS.closeDate = db.close_date || null;
         }
 
         ORDER_STATUSES = await statusesResp.json();
@@ -145,14 +203,81 @@ async function loadProducts() {
         });
         
         document.getElementById('loader').style.display = 'none';
-        renderCategories();
-        populateBrandsFilter();
-        renderProducts();
-        updateMainButtonState(); 
+
+        // --- ШАГ 3: ПРОВЕРКА ОТКРЫТИЯ МАГАЗИНА ---
+        if (!checkStoreStatus()) {
+            // Если магазин закрыт — показываем заглушку и запускаем таймер
+            // (Предполагаю, что у тебя есть функция showScreen, либо просто прячем/показываем блоки)
+            const closedScreen = document.getElementById('closedScreen');
+            if (closedScreen) closedScreen.style.display = 'flex';
+            
+            startDropTimer();
+            if (tg) tg.MainButton.hide();
+        } else {
+            // Если открыто — рисуем товары как обычно
+            renderCategories();
+            populateBrandsFilter();
+            renderProducts();
+            updateMainButtonState(); 
+        }
+        // -----------------------------------------
     } catch (e) {
         console.error(e);
         alert("Ошибка загрузки.");
     }
+
+
+// --------------------------------------
+
+function checkStoreStatus() {
+    if (currentUserData && currentUserData.status === 'admin') return true; // Админам можно всегда
+
+    const now = new Date();
+    const openTime = STORE_SETTINGS.openDate ? new Date(STORE_SETTINGS.openDate) : null;
+    const closeTime = STORE_SETTINGS.closeDate ? new Date(STORE_SETTINGS.closeDate) : null;
+
+    if (!openTime || !closeTime) return false;
+    if (now >= openTime && now <= closeTime) return true;
+    return false; 
+}
+
+function startDropTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    const openTime = STORE_SETTINGS.openDate ? new Date(STORE_SETTINGS.openDate).getTime() : null;
+    const container = document.getElementById('dropTimerContainer');
+    const statusText = document.getElementById('closedStatusText');
+
+    if (!openTime || openTime < new Date().getTime()) {
+        if(container) container.style.display = 'none';
+        if(statusText) statusText.innerText = "Ждите анонса следующего дропа! Включайте уведомления 🔔";
+        return;
+    }
+
+    if(container) container.style.display = 'block';
+    if(statusText) statusText.innerText = "Мы готовим для вас кое-что вкусное. Открытие через:";
+
+    timerInterval = setInterval(() => {
+        const now = new Date().getTime();
+        const distance = openTime - now;
+
+        if (distance < 0) {
+            clearInterval(timerInterval);
+            location.reload(); 
+            return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        document.getElementById('timerDays').innerText = days < 10 ? '0' + days : days;
+        document.getElementById('timerHours').innerText = hours < 10 ? '0' + hours : hours;
+        document.getElementById('timerMins').innerText = minutes < 10 ? '0' + minutes : minutes;
+        document.getElementById('timerSecs').innerText = seconds < 10 ? '0' + seconds : seconds;
+    }, 1000);
+}
 }
 
 function toggleSearch() {
@@ -474,6 +599,13 @@ function setDeliveryMode(mode) {
 }
 
 async function submitOrder() {
+    // ЗАЩИТА ОТ ЗОЛУШКИ
+    if (!checkStoreStatus()) {
+        alert("Ой! Магазин только что закрылся 😔 Заказы больше не принимаются.");
+        location.reload();
+        return;
+    }
+
     let address = '';
     if (deliveryMode === 'delivery') {
         address = document.getElementById('deliveryAddress').value.trim();
@@ -663,9 +795,26 @@ function openProfile() {
 }
 
 function closeProfile() {
-    appState = 'catalog';
+    // 1. Убираем экран профиля в любом случае
     document.getElementById('profileScreen').classList.remove('active');
-    updateMainButtonState(); // Возвращаем кнопку, если в корзине что-то есть
+
+    // 2. Проверяем, открыт ли сейчас магазин
+    if (!checkStoreStatus()) {
+        // Если магазин закрыт — показываем экран-заглушку
+        showScreen('closedScreen');
+    } else {
+        // Если открыт — возвращаемся в каталог (твой старый код)
+        appState = 'catalog';
+        // На всякий случай убедимся, что главный экран активен
+        const mainScreen = document.getElementById('mainScreen');
+        if (mainScreen) mainScreen.classList.add('active');
+    }
+
+    // 3. Скрываем кнопку "Назад" в Телеграм и обновляем главную кнопку
+    if (tg) {
+        tg.BackButton.hide();
+    }
+    updateMainButtonState();
 }
 
 
@@ -1321,6 +1470,13 @@ async function changeOrderStatus(orderId, newStatus) {
 function renderAdminSettings() {
     const container = document.getElementById('adminContent');
     
+    // Форматируем для HTML (с учетом часового пояса)
+    const formatForInput = (isoString) => {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    };
+
     let catMarginsHtml = '';
     for (let cat in STORE_SETTINGS.categoryMargins) {
         catMarginsHtml += `
@@ -1348,6 +1504,17 @@ function renderAdminSettings() {
 
     container.innerHTML = `
         <div style="padding-bottom: 100px;">
+            <div class="checkout-info" style="margin-bottom: 20px; border-left: 4px solid #f39c12;">
+                <h4 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 10px;">⏰ Расписание (Дропы)</h4>
+                <p style="font-size: 11px; opacity: 0.7; margin-bottom: 10px;">Если даты не заданы, магазин закрыт. Время местное.</p>
+                
+                <label style="display:block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Открытие:</label>
+                <input type="datetime-local" id="set-open-date" class="address-input" value="${formatForInput(STORE_SETTINGS.openDate)}">
+                
+                <label style="display:block; font-size: 12px; font-weight: bold; margin-bottom: 5px; margin-top: 10px;">Закрытие:</label>
+                <input type="datetime-local" id="set-close-date" class="address-input" value="${formatForInput(STORE_SETTINGS.closeDate)}">
+            </div>
+
             <div class="checkout-info" style="margin-bottom: 20px;">
                 <h4 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 10px;">Статусы заказов</h4>
                 <p style="font-size: 11px; opacity: 0.7; margin-bottom: 15px;">Названия статусов и их видимость в меню</p>
