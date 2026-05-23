@@ -14,27 +14,23 @@ import {
 export default function Orders() {
     const [orders, setOrders] = useState([]);
     const [statuses, setStatuses] = useState([]);
-    const [products, setProducts] = useState([]); // Сюда подгружаем товары для расчета себестоимости
     const [loading, setLoading] = useState(true);
     const [expandedOrders, setExpandedOrders] = useState({});
 
-    // Загрузка заказов, статусов и товаров
+    // Загрузка заказов и статусов
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [ordersRes, statusesRes, productsRes] = await Promise.all([
+            const [ordersRes, statusesRes] = await Promise.all([
                 supabase.from('orders').select('*').order('created_at', { ascending: false }),
-                supabase.from('order_statuses').select('*').order('sort_order'),
-                supabase.from('products').select('id, price_10') // Берем только ID и закупочную цену
+                supabase.from('order_statuses').select('*').order('sort_order')
             ]);
 
             if (ordersRes.error) throw ordersRes.error;
             if (statusesRes.error) throw statusesRes.error;
-            if (productsRes.error) throw productsRes.error;
 
             setOrders(ordersRes.data || []);
             setStatuses(statusesRes.data || []);
-            setProducts(productsRes.data || []);
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
             alert('Не удалось загрузить данные заказов');
@@ -47,12 +43,10 @@ export default function Orders() {
         fetchData();
     }, []);
 
-    // Переключатель развернутой строки
     const toggleOrder = (orderId) => {
         setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
     };
 
-    // Обновление статуса в базе
     const handleStatusChange = async (orderId, newStatusId) => {
         try {
             const { error } = await supabase
@@ -61,8 +55,6 @@ export default function Orders() {
                 .eq('id', orderId);
 
             if (error) throw error;
-            
-            // Обновляем локальный стейт, чтобы не перезагружать всю страницу
             setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status_id: parseInt(newStatusId) } : o));
         } catch (error) {
             console.error('Ошибка обновления статуса:', error);
@@ -70,22 +62,25 @@ export default function Orders() {
         }
     };
 
-    // Санитизация и расчет общей себестоимости ОДНОГО заказа
+    // Всеядная функция расчета себестоимости одного заказа
     const calculateOrderCostPrice = (items) => {
-        if (!items || !Array.isArray(items)) return 0;
+        if (!items) return 0;
         
-        return items.reduce((total, item) => {
-            // Ищем товар в нашей базе по id (приводим к числу/строке для надежности)
-            const matchedProduct = products.find(p => String(p.id) === String(item.id));
+        // Превращаем объект/карту товаров в массив для перебора
+        const itemsArray = Array.isArray(items) ? items : Object.values(items);
+        
+        return itemsArray.reduce((total, item) => {
+            // Данные товара могут быть в корне или внутри вложенного объекта product
+            const prod = item.product || item;
+            let rawCost = prod.price_10;
             
-            if (matchedProduct && matchedProduct.price_10) {
-                let rawCost = matchedProduct.price_10;
-                // Защита от букв вроде "р" в базе данных
+            if (rawCost) {
                 if (typeof rawCost === 'string') {
+                    // Очищаем от букв "р", пробелов и заменяем запятые на точки
                     rawCost = rawCost.replace(/[^0-9.,]/g, '').replace(',', '.');
                 }
                 const costPerUnit = parseFloat(rawCost) || 0;
-                const quantity = parseInt(item.quantity) || 0;
+                const quantity = parseInt(item.qty) || parseInt(item.quantity) || 0;
                 
                 return total + (costPerUnit * quantity);
             }
@@ -93,19 +88,18 @@ export default function Orders() {
         }, 0);
     };
 
-    // Стили для статус-баджиков
     const getStatusStyle = (statusId) => {
         const base = { padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold' };
         switch(statusId) {
-            case 1: return { ...base, backgroundColor: '#FAF3E8', color: '#D97736' }; // Новый
-            case 2: return { ...base, backgroundColor: '#E3F2FD', color: '#1E88E5' }; // Принят
-            case 3: return { ...base, backgroundColor: '#E8F5E9', color: '#4CAF50' }; // Готов / Выдан
-            case 4: return { ...base, backgroundColor: '#FFEBEE', color: '#E53935' }; // Отменен
+            case 1: return { ...base, backgroundColor: '#FAF3E8', color: '#D97736' };
+            case 2: return { ...base, backgroundColor: '#E3F2FD', color: '#1E88E5' };
+            case 3: return { ...base, backgroundColor: '#E8F5E9', color: '#4CAF50' };
+            case 4: return { ...base, backgroundColor: '#FFEBEE', color: '#E53935' };
             default: return { ...base, backgroundColor: '#F5F5F5', color: '#757575' };
         }
     };
 
-    // Общая статистика по всем заказам в списке
+    // Глобальные счетчики аналитики по всем загруженным заказам
     const totalRevenue = orders.reduce((acc, o) => acc + (o.total_price || 0), 0);
     const totalCost = orders.reduce((acc, o) => acc + calculateOrderCostPrice(o.items), 0);
     const totalProfit = totalRevenue - totalCost;
@@ -123,25 +117,25 @@ export default function Orders() {
                 </button>
             </div>
 
-            {/* Финансовая статистика всей вкладки */}
+            {/* Финансовые карточки */}
             {!loading && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #E8C396', boxShadow: '0 4px 10px rgba(0,0,0,0.02)' }}>
-                        <div style={{ fontSize: '12px', color: '#8B5E3C', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><DollarOutlined /> ОБЩАЯ ВЫРУЧКА</div>
+                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #E8C396' }}>
+                        <div style={{ fontSize: '12px', color: '#8B5E3C', fontWeight: 'bold' }}><DollarOutlined /> ОБЩАЯ ВЫРУЧКА</div>
                         <div style={{ fontSize: '24px', fontWeight: '900', color: '#5C3A21', marginTop: '5px' }}>{totalRevenue.toLocaleString()} ₽</div>
                     </div>
-                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #E8C396', boxShadow: '0 4px 10px rgba(0,0,0,0.02)' }}>
-                        <div style={{ fontSize: '12px', color: '#8B5E3C', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><ShoppingOutlined /> СЕБЕСТОИМОСТЬ (Закупка)</div>
+                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #E8C396' }}>
+                        <div style={{ fontSize: '12px', color: '#8B5E3C', fontWeight: 'bold' }}><ShoppingOutlined /> СЕБЕСТОИМОСТЬ (Закупка)</div>
                         <div style={{ fontSize: '24px', fontWeight: '900', color: '#7f8c8d', marginTop: '5px' }}>{Math.round(totalCost).toLocaleString()} ₽</div>
                     </div>
-                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #2ecc71', boxShadow: '0 4px 10px rgba(46, 204, 113, 0.05)' }}>
-                        <div style={{ fontSize: '12px', color: '#27ae60', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}><PieChartOutlined /> ЧИСТАЯ ПРИБЫЛЬ</div>
+                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #2ecc71' }}>
+                        <div style={{ fontSize: '12px', color: '#27ae60', fontWeight: 'bold' }}><PieChartOutlined /> ЧИСТАЯ ПРИБЫЛЬ</div>
                         <div style={{ fontSize: '24px', fontWeight: '900', color: '#2ecc71', marginTop: '5px' }}>{Math.round(totalProfit).toLocaleString()} ₽</div>
                     </div>
                 </div>
             )}
 
-            {/* Таблица */}
+            {/* Основная таблица */}
             <div style={{ backgroundColor: 'white', borderRadius: '16px', border: '1px solid #E8C396', boxShadow: '0 4px 15px rgba(92, 58, 33, 0.05)', overflow: 'hidden' }}>
                 {loading ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: '#8B5E3C', fontWeight: 'bold' }}>Загрузка списка заказов...</div>
@@ -166,9 +160,11 @@ export default function Orders() {
                                 const orderCostPrice = calculateOrderCostPrice(o.items);
                                 const orderProfit = (o.total_price || 0) - orderCostPrice;
 
+                                // Преобразуем объект товаров конкретного заказа в массив
+                                const currentOrderItems = o.items ? (Array.isArray(o.items) ? o.items : Object.values(o.items)) : [];
+
                                 return (
                                     <React.Fragment key={o.id}>
-                                        {/* Основная строка заказа */}
                                         <tr style={{ borderBottom: '1px solid rgba(232, 195, 150, 0.3)', cursor: 'pointer', backgroundColor: isExpanded ? '#FAF3E8' : 'transparent' }} onClick={() => toggleOrder(o.id)}>
                                             <td style={{ padding: '16px 20px', textAlign: 'center' }}>
                                                 {isExpanded ? <UpOutlined style={{ color: '#D97736' }} /> : <DownOutlined style={{ color: '#D97736' }} />}
@@ -186,15 +182,12 @@ export default function Orders() {
                                                     <span style={{ color: '#8B5E3C' }}><ShoppingOutlined /> Самовывоз</span>
                                                 )}
                                             </td>
-                                            {/* Стоимость для меня (Закупка) */}
                                             <td style={{ padding: '16px 20px', fontWeight: 'bold', color: '#7f8c8d' }}>
                                                 {Math.round(orderCostPrice)} ₽
                                             </td>
-                                            {/* Стоимость для клиента (Реализация) */}
                                             <td style={{ padding: '16px 20px', fontWeight: '900', color: '#D97736', fontSize: '15px' }}>
                                                 {o.total_price} ₽
                                             </td>
-                                            {/* Чистая маржа с заказа */}
                                             <td style={{ padding: '16px 20px', fontWeight: '900', color: '#2ecc71', fontSize: '15px' }}>
                                                 +{Math.round(orderProfit)} ₽
                                             </td>
@@ -213,7 +206,7 @@ export default function Orders() {
                                             </td>
                                         </tr>
 
-                                        {/* Раскрывающаяся часть с составом заказа */}
+                                        {/* Выпадающий список товаров */}
                                         {isExpanded && (
                                             <tr>
                                                 <td colSpan="7" style={{ backgroundColor: '#FFFBF5', padding: '20px 40px', borderBottom: '1px solid #E8C396' }}>
@@ -221,26 +214,34 @@ export default function Orders() {
                                                         <h4 style={{ margin: '0 0 12px 0', color: '#5C3A21', borderBottom: '1px solid #FAF3E8', paddingBottom: '6px' }}>
                                                             Состав заказа:
                                                         </h4>
-                                                        {o.items && Array.isArray(o.items) ? (
-                                                            o.items.map((item, idx) => (
-                                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px', borderBottom: idx !== o.items.length - 1 ? '1px dashed #FAF3E8' : 'none' }}>
-                                                                    <span style={{ color: '#5C3A21' }}>
-                                                                        🔹 <b>{item.manufacturer}</b> {item.series !== '—' && `(${item.series})`} — {item.flavor}
-                                                                    </span>
-                                                                    <span style={{ fontWeight: 'bold', color: '#8B5E3C' }}>
-                                                                        {item.quantity} шт. х {item.price} ₽
-                                                                    </span>
-                                                                </div>
-                                                            ))
+                                                        
+                                                        {currentOrderItems.length > 0 ? (
+                                                            currentOrderItems.map((item, idx) => {
+                                                                const prod = item.product || item;
+                                                                const q = item.qty || item.quantity || 0;
+                                                                const seriesName = (prod.series && prod.series !== '—') ? `(${prod.series})` : '';
+
+                                                                return (
+                                                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px', borderBottom: idx !== currentOrderItems.length - 1 ? '1px dashed #FAF3E8' : 'none' }}>
+                                                                        <span style={{ color: '#5C3A21' }}>
+                                                                            🔹 <b>{prod.manufacturer || 'Товар'}</b> {seriesName} — {prod.flavor || ''}
+                                                                        </span>
+                                                                        <span style={{ fontWeight: 'bold', color: '#8B5E3C' }}>
+                                                                            {q} шт.
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })
                                                         ) : (
-                                                            <div style={{ color: 'red' }}>Ошибка структуры данных товаров</div>
+                                                            <div style={{ color: '#8B5E3C', fontSize: '13px' }}>Корзина заказа пуста</div>
                                                         )}
+
                                                         {o.address && (
                                                             <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid #FAF3E8', fontSize: '13px', color: '#5C3A21' }}>
                                                                 📍 <b>Адрес доставки:</b> {o.address}
                                                             </div>
                                                         )}
-                                                        <div style={{ marginTop: '10px', fontSize: '13px', color: '#8B5E3C', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                        <div style={{ marginTop: '10px', fontSize: '13px', color: '#8B5E3C' }}>
                                                             <UserOutlined /> ID Покупателя: <code style={{ backgroundColor: '#FAF3E8', padding: '2px 6px', borderRadius: '4px' }}>{o.user_id}</code>
                                                         </div>
                                                     </div>
