@@ -1,0 +1,26 @@
+/* Убираем все отступы и заставляем приложение занимать 100% экрана */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #FFF8EE; /* Наш фирменный фон */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Красивый скроллбар для ПК */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #E8C396;
+  border-radius: 10px;
+}
