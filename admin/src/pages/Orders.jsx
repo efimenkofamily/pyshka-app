@@ -8,7 +8,16 @@ import {
     CarOutlined, 
     UserOutlined,
     DollarOutlined,
-    PieChartOutlined
+    PieChartOutlined,
+    MoreOutlined, 
+    EditOutlined, 
+    DeleteOutlined, 
+    SearchOutlined, 
+    PlusOutlined, 
+    MinusOutlined, 
+    CloseOutlined, 
+    SaveOutlined,
+    LoadingOutlined
 } from '@ant-design/icons';
 
 export default function Orders() {
@@ -16,14 +25,21 @@ export default function Orders() {
     const [statuses, setStatuses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedOrders, setExpandedOrders] = useState({});
+    const [activeMenuOrderId, setActiveMenuOrderId] = useState(null); // ID заказа, у которого открыты три точки
+    const [editingOrder, setEditingOrder] = useState(null);           // Копия заказа, который мы прямо сейчас редактируем в модальном окне
+    const [allProducts, setAllProducts] = useState([]);               // Весь список товаров из БД для поиска замен
+    const [config, setConfig] = useState(null);                       // Конфиг наценок для правильного пересчета розничной цены
+    const [searchQuery, setSearchQuery] = useState('');               // Текст поиска товара внутри модалки
 
-    // Загрузка заказов и статусов
+    // Загрузка заказов, статусов, товаров и конфига
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [ordersRes, statusesRes] = await Promise.all([
+            const [ordersRes, statusesRes, prodRes, configRes] = await Promise.all([
                 supabase.from('orders').select('*').order('created_at', { ascending: false }),
-                supabase.from('order_statuses').select('*').order('sort_order')
+                supabase.from('order_statuses').select('*').order('sort_order'),
+                supabase.from('products').select('*').eq('availability', 'есть'),
+                supabase.from('config').select('*').eq('id', 1).single()
             ]);
 
             if (ordersRes.error) throw ordersRes.error;
@@ -31,6 +47,8 @@ export default function Orders() {
 
             setOrders(ordersRes.data || []);
             setStatuses(statusesRes.data || []);
+            setAllProducts(prodRes.data || []);
+            setConfig(configRes.data || null);
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
             alert('Не удалось загрузить данные заказов');
@@ -38,6 +56,14 @@ export default function Orders() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchData();
+        // Закрывать трехточечное меню при клике в любое место экрана
+        const handleGlobalClick = () => setActiveMenuOrderId(null);
+        window.addEventListener('click', handleGlobalClick);
+        return () => window.removeEventListener('click', handleGlobalClick);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -62,6 +88,86 @@ export default function Orders() {
         }
     };
 
+    // === ЛОГИКА РЕДАКТИРОВАНИЯ И УДАЛЕНИЯ ЗАКАЗА ===
+    const handleDeleteOrder = async (orderId) => {
+        const isConfirmed = window.confirm(`Удалить заказ №${orderId.substring(0,6).toUpperCase()}?`);
+        if (!isConfirmed) return;
+        try {
+            const { error } = await supabase.from('orders').delete().eq('id', orderId);
+            if (error) throw error;
+            setOrders(prev => prev.filter(o => o.id !== orderId));
+        } catch (err) {
+            console.error(err);
+            alert('Не удалось удалить заказ');
+        }
+    };
+
+    const handleStartEdit = (order) => {
+        setEditingOrder(JSON.parse(JSON.stringify(order)));
+        setSearchQuery('');
+    };
+
+    const calculateRetailPrice = (product) => {
+        if (!product || !product.price_10) return 0;
+        const cleanPrice = parseFloat(product.price_10.toString().replace(/[^0-9.,]/g, '').replace(',', '.'));
+        if (isNaN(cleanPrice)) return 0;
+        const margin = config?.category_margins?.[product.category] || config?.default_margin || 1.7;
+        return Math.round(cleanPrice * margin);
+    };
+
+    const updateOrderTotal = (updatedItems) => {
+        let itemsSum = 0;
+        Object.values(updatedItems).forEach(item => {
+            const price = calculateRetailPrice(item.product);
+            itemsSum += price * (item.qty || 1);
+        });
+        let finalTotal = itemsSum;
+        if (editingOrder.delivery_type === 'delivery' && config && itemsSum < (config.free_delivery_threshold || 5000)) {
+            finalTotal += (config.delivery_cost || 350);
+        }
+        setEditingOrder(prev => ({ ...prev, items: updatedItems, total_price: finalTotal }));
+    };
+
+    const handleQtyChange = (productId, delta) => {
+        const updatedItems = { ...editingOrder.items };
+        if (!updatedItems[productId]) return;
+        updatedItems[productId].qty += delta;
+        if (updatedItems[productId].qty <= 0) delete updatedItems[productId];
+        updateOrderTotal(updatedItems);
+    };
+
+    const handleRemoveItem = (productId) => {
+        const updatedItems = { ...editingOrder.items };
+        delete updatedItems[productId];
+        updateOrderTotal(updatedItems);
+    };
+
+    const handleAddItemToOrder = (product) => {
+        const updatedItems = { ...(editingOrder.items || {}) };
+        if (updatedItems[product.id]) {
+            updatedItems[product.id].qty += 1;
+        } else {
+            updatedItems[product.id] = { qty: 1, product: { ...product } };
+        }
+        updateOrderTotal(updatedItems);
+        setSearchQuery('');
+    };
+
+    const handleSaveOrderEdit = async () => {
+        try {
+            const { error } = await supabase.from('orders')
+                .update({ items: editingOrder.items, total_price: editingOrder.total_price })
+                .eq('id', editingOrder.id);
+            if (error) throw error;
+            setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
+            setEditingOrder(null);
+        } catch (err) {
+            console.error(err);
+            alert('Не удалось сохранить изменения');
+        }
+    };
+    // === КОНЕЦ ЛОГИКИ РЕДАКТИРОВАНИЯ ===
+    
     // Всеядная функция расчета себестоимости одного заказа
     const calculateOrderCostPrice = (items) => {
         if (!items) return 0;
@@ -152,6 +258,7 @@ export default function Orders() {
                                 <th style={{ padding: '16px 20px', fontWeight: '900', color: '#5C3A21' }}>К оплате</th>
                                 <th style={{ padding: '16px 20px', fontWeight: '900', color: '#2ecc71' }}>Прибыль</th>
                                 <th style={{ padding: '16px 20px', fontWeight: '900', color: '#5C3A21', width: '200px' }}>Статус заказа</th>
+                                <th style={{ padding: '16px 20px', width: '50px' }}></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -204,12 +311,27 @@ export default function Orders() {
                                                     ))}
                                                 </select>
                                             </td>
+                                            {/* КНОПКА 3 ТОЧКИ С МЕНЮШКОЙ */}
+                                            <td style={{ position: 'relative', textAlign: 'right', paddingRight: '20px' }}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setActiveMenuOrderId(activeMenuOrderId === o.id ? null : o.id); }}
+                                                    style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#8B5E3C', padding: '4px 8px' }}
+                                                >
+                                                    <MoreOutlined />
+                                                </button>
+                                                {activeMenuOrderId === o.id && (
+                                                    <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: '40px', top: '10px', backgroundColor: 'white', borderRadius: '10px', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', zIndex: 100, display: 'flex', flexDirection: 'column', border: '1px solid #f0f2f5', minWidth: '160px' }}>
+                                                        <button onClick={() => { handleStartEdit(o); setActiveMenuOrderId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 18px', border: 'none', background: 'transparent', fontSize: '13px', fontWeight: 'bold', color: '#2c3e50', cursor: 'pointer', textAlign: 'left' }}><EditOutlined style={{ color: '#3498db' }} /> Редактировать</button>
+                                                        <button onClick={() => { handleDeleteOrder(o.id); setActiveMenuOrderId(null); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 18px', border: 'none', borderTop: '1px solid #f0f2f5', background: 'transparent', fontSize: '13px', fontWeight: 'bold', color: '#e74c3c', cursor: 'pointer', textAlign: 'left' }}><DeleteOutlined /> Удалить заказ</button>
+                                                    </div>
+                                                )}
+                                            </td>
                                         </tr>
 
                                         {/* Выпадающий список товаров */}
                                         {isExpanded && (
                                             <tr>
-                                                <td colSpan="7" style={{ backgroundColor: '#FFFBF5', padding: '20px 40px', borderBottom: '1px solid #E8C396' }}>
+                                                <td colSpan="8" style={{ backgroundColor: '#FFFBF5', padding: '20px 40px', borderBottom: '1px solid #E8C396' }}>
                                                     <div style={{ padding: '15px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #E8C396' }}>
                                                         <h4 style={{ margin: '0 0 12px 0', color: '#5C3A21', borderBottom: '1px solid #FAF3E8', paddingBottom: '6px' }}>
                                                             Состав заказа:
@@ -255,6 +377,95 @@ export default function Orders() {
                     </table>
                 )}
             </div>
+
+            {/* ===================== МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ЗАКАЗА ===================== */}
+            {editingOrder && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(44, 62, 80, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ backgroundColor: 'white', width: '850px', height: '650px', borderRadius: '20px', boxShadow: '0 15px 50px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        
+                        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f0f2f5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#2c3e50' }}>Редактирование заказа №{editingOrder.id.substring(0,6).toUpperCase()}</h2>
+                                <span style={{ fontSize: '13px', color: '#7f8c8d' }}>Покупатель: <b>{editingOrder.user_name}</b> | Доставка: {editingOrder.delivery_type === 'pickup' ? '🏪 Самовывоз' : '🚗 Курьер'}</span>
+                            </div>
+                            <button onClick={() => setEditingOrder(null)} style={{ border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer', color: '#95a5a6' }}><CloseOutlined /></button>
+                        </div>
+
+                        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                            {/* ЛЕВАЯ КОЛОНКА */}
+                            <div style={{ width: '55%', borderRight: '1px solid #f0f2f5', padding: '20px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                                <h3 style={{ margin: '0 0 14px 0', fontSize: '14px', fontWeight: 'bold', color: '#7f8c8d', textTransform: 'uppercase' }}>Состав заказа</h3>
+                                {Object.keys(editingOrder.items || {}).length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '40px', color: '#95a5a6', fontSize: '13px' }}>Заказ пуст. Добавьте товары справа.</div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {Object.entries(editingOrder.items).map(([id, item]) => (
+                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '12px', border: '1px solid #f0f2f5' }}>
+                                                <div style={{ flex: 1, paddingRight: '10px' }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#2c3e50' }}>{item.product?.manufacturer}</div>
+                                                    <div style={{ fontSize: '12px', color: '#7f8c8d' }}>{item.product?.series !== '—' && `${item.product?.series} | `}{item.product?.flavor}</div>
+                                                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#D97736', marginTop: '4px' }}>{calculateRetailPrice(item.product)} ₽ / шт</div>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '14px' }}>
+                                                    <button onClick={() => handleQtyChange(id, -1)} style={{ width: '24px', height: '24px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', cursor: 'pointer' }}><MinusOutlined style={{ fontSize: '10px' }} /></button>
+                                                    <span style={{ fontWeight: 'bold', fontSize: '14px', minWidth: '20px', textAlign: 'center' }}>{item.qty}</span>
+                                                    <button onClick={() => handleQtyChange(id, 1)} style={{ width: '24px', height: '24px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: 'white', cursor: 'pointer' }}><PlusOutlined style={{ fontSize: '10px' }} /></button>
+                                                </div>
+                                                <button onClick={() => handleRemoveItem(id)} style={{ border: 'none', background: 'transparent', color: '#e74c3c', cursor: 'pointer', fontSize: '14px' }}><DeleteOutlined /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ПРАВАЯ КОЛОНКА */}
+                            <div style={{ width: '45%', padding: '20px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 'bold', color: '#7f8c8d', textTransform: 'uppercase' }}>Добавить замену</h3>
+                                <div style={{ position: 'relative', marginBottom: '14px' }}>
+                                    <SearchOutlined style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#95a5a6' }} />
+                                    <input 
+                                        type="text"
+                                        placeholder="Поиск товара..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: '10px', border: '1px solid #ecf0f1', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }} className="no-scrollbar">
+                                    {searchQuery.trim().length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: '#95a5a6', fontSize: '12px' }}>Введите название вкуса или бренда</div>
+                                    ) : allProducts.filter(p => `${p.manufacturer} ${p.series} ${p.flavor}`.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 30).map(product => (
+                                        <div key={product.id} onClick={() => handleAddItemToOrder(product)} style={{ padding: '10px 12px', backgroundColor: '#fdfaf6', border: '1px solid #faebcc', borderRadius: '10px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ flex: 1, paddingRight: '8px' }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#2c3e50' }}>{product.manufacturer} {product.series !== '—' && `(${product.series})`}</div>
+                                                <div style={{ fontSize: '11px', color: '#7f8c8d', marginTop: '2px' }}>{product.flavor}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'right', minWidth: '70px' }}>
+                                                <div style={{ fontSize: '12px', fontWeight: '900', color: '#2ecc71' }}>{calculateRetailPrice(product)} ₽</div>
+                                                <span style={{ fontSize: '9px', backgroundColor: '#e8f8f0', color: '#2ecc71', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginTop: '2px' }}>+ Добавить</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ПОДВАЛ */}
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid #f0f2f5', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <span style={{ fontSize: '12px', color: '#7f8c8d', fontWeight: 'bold', textTransform: 'uppercase' }}>Новая сумма к оплате:</span>
+                                <div style={{ fontSize: '22px', fontWeight: '900', color: '#2ecc71' }}>{editingOrder.total_price} ₽</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => setEditingOrder(null)} style={{ padding: '12px 20px', borderRadius: '12px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#64748b', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>Отмена</button>
+                                <button onClick={handleSaveOrderEdit} style={{ padding: '12px 24px', borderRadius: '12px', border: 'none', backgroundColor: '#D97736', color: 'white', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}><SaveOutlined /> Сохранить изменения</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

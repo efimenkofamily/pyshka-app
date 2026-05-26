@@ -21,7 +21,7 @@ const UI_PRESETS = {
     5: { color: '#2ecc71', progress: '100%' }  // 🎯 Вручено. Спасибо за заказ
 };
 
-export default function Profile({ goBack, products, config, authStatus }) {
+export default function Profile({ goBack, products, config, authStatus, onEditOrder }) {
     const [currentView, setCurrentView] = useState('menu'); 
     const [orders, setOrders] = useState([]);
     const [dbStatuses, setDbStatuses] = useState({}); 
@@ -86,6 +86,15 @@ export default function Profile({ goBack, products, config, authStatus }) {
         return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     };
 
+    // 🚀 Функция расчета актуальной розничной цены
+    const calculateRetailPrice = (product) => {
+        if (!product || !product.price_10) return 0;
+        const cleanPrice = parseFloat(product.price_10.toString().replace(/[^0-9.,]/g, '').replace(',', '.'));
+        if (isNaN(cleanPrice)) return 0;
+        const margin = config?.category_margins?.[product.category] || config?.default_margin || 1.7;
+        return Math.round(cleanPrice * margin);
+    };
+
     // === ИСТОРИЯ ЗАКАЗОВ ===
     if (currentView === 'history') {
         return (
@@ -113,13 +122,26 @@ export default function Profile({ goBack, products, config, authStatus }) {
                                             {statusText}
                                         </span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px', fontSize: '13px', color: '#2c3e50' }}>
-                                        {order.items && Object.entries(order.items).map(([id, item]) => (
-                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>{item.product?.manufacturer} {item.product?.series !== '—' && `(${item.product?.series})`} — <span style={{color: '#7f8c8d'}}>{item.product?.flavor}</span></span>
-                                                <span style={{fontWeight: '700', color: '#7f8c8d'}}>{item.qty} шт</span>
-                                            </div>
-                                        ))}
+                                    <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '4px' }}>
+                                        {order.items && Object.entries(order.items).map(([id, item], index, arr) => {
+                                            const seriesName = item.product?.series && item.product?.series !== '—' ? item.product?.series : item.product?.manufacturer;
+                                            const itemPrice = calculateRetailPrice(item.product) * item.qty;
+                                            return (
+                                                <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', paddingBottom: '10px', borderBottom: index === arr.length - 1 ? 'none' : '1px solid #f0f2f5' }}>
+                                                    {/* Левый блок: Двухстрочный вывод с автопереносом длинных линеек */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '16px' }}>
+                                                        <div style={{ fontWeight: '800', fontSize: '13px', color: '#2c3e50', lineHeight: '1.3' }}>{seriesName}</div>
+                                                        <div style={{ fontWeight: 'normal', fontSize: '12px', color: '#7f8c8d' }}>{item.product?.flavor}</div>
+                                                    </div>
+                                                    {/* Правый блок: Кол-во и Цена (защищены от сжатия и переносов) */}
+                                                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: '700', color: '#2c3e50', flexShrink: 0 }}>
+                                                        <span style={{ color: '#7f8c8d', fontWeight: '600' }}>{item.qty} шт</span>
+                                                        <span style={{ margin: '0 6px', color: '#e0e4e8' }}>/</span>
+                                                        <span>{itemPrice} ₽</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold', color: '#2ecc71', paddingTop: '10px', borderTop: '1px solid #f0f2f5' }}>
                                         <span style={{color: '#7f8c8d', fontWeight: '600'}}>{order.delivery_type === 'pickup' ? '🏪 Самовывоз' : '🚗 Доставка'}</span>
@@ -152,7 +174,7 @@ export default function Profile({ goBack, products, config, authStatus }) {
                         {user?.photo_url ? <img src={user.photo_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserOutlined style={{ color: '#95a5a6', fontSize: '28px' }} />}
                     </div>
                     <div>
-                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#2c3e50' }}>{user ? `${user.first_name}` : 'Пользователь'} 🐼</div>
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#2c3e50' }}>{user ? `${user.first_name}` : 'Пользователь'}</div>
                         <span style={{ display: 'inline-block', marginTop: '6px', backgroundColor: role.bg, color: role.color, padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '900' }}>{role.text}</span>
                     </div>
                 </div>
@@ -180,20 +202,54 @@ export default function Profile({ goBack, products, config, authStatus }) {
                             </div>
                         </div>
 
-                        {isOrderExpanded && (
-                            <div style={{ padding: '8px 0', borderTop: '1px solid #f0f2f5', marginBottom: '12px', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                {currentActiveOrder.items && Object.entries(currentActiveOrder.items).map(([id, item]) => (
-                                    <div key={id} style={{ display: 'flex', justifyContent: 'space-between', color: '#2c3e50' }}>
-                                        <span>{item.product?.manufacturer} — <span style={{color: '#7f8c8d'}}>{item.product?.flavor}</span></span>
-                                        <span style={{fontWeight: 'bold', color: '#7f8c8d'}}>{item.qty} шт</span>
-                                    </div>
-                                ))}
+                        {/* 🚀 АНИМИРОВАННЫЙ БЛОК СОСТАВА ЗАКАЗА (CSS Grid Transition) */}
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateRows: isOrderExpanded ? '1fr' : '0fr',
+                            opacity: isOrderExpanded ? 1 : 0,
+                            transition: 'grid-template-rows 0.35s ease-out, opacity 0.35s ease-out',
+                            marginTop: isOrderExpanded ? '12px' : '0px'
+                        }}>
+                            <div style={{ overflow: 'hidden' }}>
+                                <div style={{ borderTop: '1px solid #f0f2f5', paddingTop: '4px', display: 'flex', flexDirection: 'column' }}>
+                                    {currentActiveOrder.items && Object.entries(currentActiveOrder.items).map(([id, item], index, arr) => {
+                                        const seriesName = item.product?.series && item.product?.series !== '—' ? item.product?.series : item.product?.manufacturer;
+                                        const itemPrice = calculateRetailPrice(item.product) * item.qty;
+                                        return (
+                                            <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', paddingBottom: '10px', borderBottom: index === arr.length - 1 ? 'none' : '1px solid #f0f2f5' }}>
+                                                {/* Левый блок */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '16px' }}>
+                                                    <div style={{ fontWeight: '800', fontSize: '13px', color: '#2c3e50', lineHeight: '1.3' }}>{seriesName}</div>
+                                                    <div style={{ fontWeight: 'normal', fontSize: '12px', color: '#7f8c8d' }}>{item.product?.flavor}</div>
+                                                </div>
+                                                {/* Правый блок */}
+                                                <div style={{ textAlign: 'right', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: '700', color: '#2c3e50', flexShrink: 0 }}>
+                                                    <span style={{ color: '#7f8c8d', fontWeight: '600' }}>{item.qty} шт</span>
+                                                    <span style={{ margin: '0 6px', color: '#e0e4e8' }}>/</span>
+                                                    <span>{itemPrice} ₽</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        )}
+                        </div>
 
+                        {/* ПОЛОСКА ПРОГРЕССА */}
                         <div style={{ width: '100%', height: '6px', backgroundColor: '#f0f2f5', borderRadius: '3px', overflow: 'hidden', marginTop: '10px' }}>
                             <div style={{ width: activeVisual.progress, height: '100%', backgroundColor: activeVisual.color, borderRadius: '3px', transition: 'width 0.4s ease-out' }}></div>
                         </div>
+
+                        {/* 🚀 КНОПКА ИЗМЕНЕНИЯ ЗАКАЗА */}
+                        {currentActiveOrder.status_id < (config?.edit_lock_status || 2) && (
+                            <button 
+                                onClick={() => onEditOrder(currentActiveOrder)}
+                                style={{ width: '100%', marginTop: '16px', padding: '12px', backgroundColor: '#fff', color: '#e74c3c', border: '1px solid #ffcccc', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', transition: '0.2s', boxShadow: '0 2px 8px rgba(231, 76, 60, 0.05)' }}
+                            >
+                                ✏️ Изменить заказ
+                            </button>
+                        )}
+
                     </div>
                 )}
 

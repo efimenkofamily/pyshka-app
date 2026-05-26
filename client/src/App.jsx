@@ -313,6 +313,33 @@ export default function App() {
         );
     }
 
+    // 🚀 === ЛОГИКА РЕДАКТИРОВАНИЯ ЗАКАЗА ===
+    const handleEditOrder = async (order) => {
+        try {
+            // 1. Сразу удаляем текущий заказ из БД
+            const { error } = await supabase.from('orders').delete().eq('id', order.id);
+            if (error) throw error;
+
+            // 2. Восстанавливаем корзину из слепка items
+            const restoredCart = {};
+            if (order.items) {
+                Object.entries(order.items).forEach(([productId, item]) => {
+                    restoredCart[productId] = item.qty;
+                });
+            }
+            
+            // Заполняем стейт корзины
+            setCart(restoredCart);
+
+            // 3. Перекидываем пользователя обратно в каталог
+            setCurrentScreen('catalog');
+            
+        } catch (err) {
+            console.error('Ошибка редактирования заказа:', err);
+            alert('Не удалось вернуть заказ в корзину. Проверьте сеть.');
+        }
+    };
+
     // === НАВИГАЦИЯ: ЭКРАН ПРОФИЛЯ ПО СКРИНШОТУ ===
     if (currentScreen === 'profile') {
         return (
@@ -326,6 +353,7 @@ export default function App() {
                         products={originalProducts}
                         config={config}
                         authStatus={authStatus}
+                        onEditOrder={handleEditOrder} // 🚀 ПЕРЕДАЕМ НАШУ ФУНКЦИЮ
                     />
                 </div>
             </div>
@@ -345,11 +373,61 @@ export default function App() {
         );
     }
 
+    // 🚀 Функция проверки: открыт ли магазин прямо сейчас?
+    const isShopOpen = () => {
+        if (!config || !config.open_date || !config.close_date) return false;
+        const now = new Date();
+        const open = new Date(config.open_date);
+        const close = new Date(config.close_date);
+        return now >= open && now <= close;
+    };
+
+    const shopActive = isShopOpen();
+    const isRegularUser = authStatus === 'approved'; // Обычный клиент
+
+    // 🛑 ЕСЛИ МАГАЗИН ЗАКРЫТ И ЭТО ОБЫЧНЫЙ ЮЗЕР — ПОКАЗЫВАЕМ СТИЛЬНУЮ ЗАГЛУШКУ
+    if (!shopActive && isRegularUser) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#e0e4e8', fontFamily: 'sans-serif' }}>
+                <div style={{ width: '100%', maxWidth: '393px', backgroundColor: '#f8f9fa', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
+                    
+                    <div style={{ backgroundColor: 'white', padding: '36px 24px', borderRadius: '24px', width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.03)', textAlign: 'center', border: '1px solid #f0f2f5' }}>
+                        <div style={{ fontSize: '54px', marginBottom: '18px' }}>🧹</div>
+                        
+                        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: '900', color: '#2c3e50' }}>
+                            Наводим порядок
+                        </h2>
+                        
+                        <p style={{ margin: '0 0 28px 0', fontSize: '14px', color: '#7f8c8d', lineHeight: '1.6', fontWeight: '500' }}>
+                            Мы прибираемся, и сейчас нельзя сделать заказ. Мы обязательно уведомим вас, когда магазин откроется!
+                        </p>
+
+                        <button 
+                            onClick={() => setCurrentScreen('profile')}
+                            style={{ width: '100%', padding: '16px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '16px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 15px rgba(44, 62, 80, 0.2)', transition: '0.2s' }}
+                        >
+                            👤 Перейти в профиль
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        );
+    }
+
     // === ГЛАВНЫЙ ЭКРАН: КАТАЛОГ ===
     return (
         <div style={{ display: 'flex', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#e0e4e8', fontFamily: 'sans-serif' }}>
             <style>{`.no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
             <div style={{ width: '100%', maxWidth: '393px', backgroundColor: '#f8f9fa', minHeight: '100vh', boxShadow: '0 0 30px rgba(0,0,0,0.15)', position: 'relative' }}>
+                
+                {/* ⚠️ Кнопка-предупреждение для стаффа на самом верху */}
+                {!shopActive && (authStatus === 'admin' || authStatus === 'developer') && (
+                    <div style={{ backgroundColor: '#e67e22', color: 'white', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>
+                        ⚠️ Дроп закрыт! Вы видите каталог только потому, что вы в режиме: {authStatus}
+                    </div>
+                )}
+
                 <div style={{ padding: '16px', paddingBottom: '90px' }}>
                     
                     {/* ШАПКА */}
