@@ -373,6 +373,27 @@ export default function App() {
         );
     }
 
+    // 🚀 Хелпер: ставит Линейку заголовком и стирает слово "new" в начале (регистронезависимо)
+    const getCleanSeriesTitle = (series, manufacturer) => {
+        if (!series || series === '—') return manufacturer;
+        return series.replace(/^new\s*/i, '');
+    };
+
+    // 🚀 Хелпер: красит бейджи крепости в зависимости от mg (0-20 зеленый, 21-40 оранжевый, 41+ красный)
+    const getStrengthStyle = (strength) => {
+        if (!strength) return { backgroundColor: 'white', color: '#2c3e50', border: '1px solid #e0e4e8' };
+        const num = parseInt(strength.replace(/[^0-9]/g, ''), 10);
+        if (isNaN(num)) return { backgroundColor: 'white', color: '#2c3e50', border: '1px solid #e0e4e8' };
+        
+        if (num <= 20) {
+            return { backgroundColor: '#2ecc71', color: 'white', border: 'none' }; // Зеленый
+        } else if (num <= 40) {
+            return { backgroundColor: '#f39c12', color: 'white', border: 'none' }; // Оранжевый
+        } else {
+            return { backgroundColor: '#e74c3c', color: 'white', border: 'none' }; // Красный
+        }
+    };
+
     // 🚀 Функция проверки: открыт ли магазин прямо сейчас?
     const isShopOpen = () => {
         if (!config || !config.open_date || !config.close_date) return false;
@@ -494,27 +515,42 @@ export default function App() {
                                                 <div key={group.id} style={{ backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
                                                     <div onClick={() => toggleSeries(group.id)} style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? '#f8f9fa' : 'white' }}>
                                                         <div>
-                                                            <div style={{ fontWeight: '800', color: '#2c3e50', fontSize: '16px' }}>{group.manufacturer}</div>
-                                                            {group.series !== '—' && <div style={{ fontSize: '13px', color: '#7f8c8d', marginTop: '4px' }}>{group.series}</div>}
+                                                            <div style={{ fontWeight: '800', color: '#2c3e50', fontSize: '16px' }}>{getCleanSeriesTitle(group.series, group.manufacturer)}</div>
+                                                            {group.series !== '—' && <div style={{ fontSize: '13px', color: '#7f8c8d', marginTop: '4px' }}>{group.manufacturer}</div>}
                                                         </div>
                                                         <div style={{ color: '#95a5a6', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                             <span style={{ backgroundColor: '#ecf0f1', padding: '4px 8px', borderRadius: '8px', fontWeight: 'bold', color: '#7f8c8d' }}>{group.flavors.length} шт</span>
                                                             {isExpanded ? <UpOutlined /> : <DownOutlined />}
                                                         </div>
                                                     </div>
-                                                    {isExpanded && (
-                                                        <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', borderTop: '1px solid #f0f2f5' }}>
-                                                            {group.flavors.map((flavor, index) => (
-                                                                <div key={flavor.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: index !== group.flavors.length - 1 ? '1px solid #f0f2f5' : 'none' }}>
-                                                                    <div style={{ flexGrow: 1, paddingRight: '15px' }}>
-                                                                        <div style={{ fontSize: '14px', color: '#2c3e50', fontWeight: '600' }}>{flavor.flavor} {flavor.strength !== '—' && `| ${flavor.strength}`}</div>
-                                                                        <div style={{ fontSize: '14px', color: '#2ecc71', fontWeight: '900', marginTop: '4px' }}>{calculatePricing(flavor)} ₽</div>
+                                                    {/* 🚀 АНИМИРОВАННАЯ ОБЕРТКА КАРТОЧКИ ТОВАРА (СПИСОК) */}
+                                                    <div style={{ 
+                                                        display: 'grid', 
+                                                        gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                                                        opacity: isExpanded ? 1 : 0,
+                                                        transition: 'grid-template-rows 0.35s ease-out, opacity 0.35s ease-out'
+                                                    }}>
+                                                        <div style={{ overflow: 'hidden' }}>
+                                                            <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', borderTop: '1px solid #f0f2f5' }}>
+                                                                {group.flavors.map((flavor, index) => (
+                                                                    <div key={flavor.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: index !== group.flavors.length - 1 ? '1px solid #f0f2f5' : 'none' }}>
+                                                                        <div style={{ flexGrow: 1, paddingRight: '15px' }}>
+                                                                            <div style={{ fontSize: '14px', color: '#2c3e50', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            {flavor.flavor} 
+                                                                            {flavor.strength !== '—' && (
+                                                                                <span style={{ padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block', ...getStrengthStyle(flavor.strength) }}>
+                                                                                    {flavor.strength}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                            <div style={{ fontSize: '14px', color: '#2ecc71', fontWeight: '900', marginTop: '4px' }}>{calculatePricing(flavor)} ₽</div>
+                                                                        </div>
+                                                                        <CartControls productId={flavor.id} />
                                                                     </div>
-                                                                    <CartControls productId={flavor.id} />
-                                                                </div>
-                                                            ))}
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -529,30 +565,47 @@ export default function App() {
                                                         <div style={{ position: 'relative' }}>
                                                             {group.imageUrl ? <img src={group.imageUrl} alt={group.series} style={{ width: '100%', height: isExpanded ? '220px' : '150px', objectFit: 'cover' }} /> : <Placeholder />}
                                                             {group.strength && group.strength !== '—' && (
-                                                                <div style={{ position: 'absolute', top: '10px', right: '10px', backgroundColor: 'rgba(255, 255, 255, 0.9)', color: '#2c3e50', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '900', backdropFilter: 'blur(5px)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>{group.strength}</div>
-                                                            )}
+                                                            <div style={{ position: 'absolute', top: '10px', right: '10px', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '900', backdropFilter: 'blur(5px)', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', ...getStrengthStyle(group.strength) }}>
+                                                                {group.strength}
+                                                            </div>
+                                                        )}
                                                         </div>
                                                         <div style={{ padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isExpanded ? '#f8f9fa' : 'white', flexGrow: 1 }}>
                                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#2c3e50', lineHeight: '1.2' }}>{group.manufacturer}</div>
-                                                                {group.series !== '—' && <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>{group.series}</div>}
+                                                                <div style={{ fontSize: '14px', fontWeight: '900', color: '#2c3e50', lineHeight: '1.2' }}>{getCleanSeriesTitle(group.series, group.manufacturer)}</div>
+                                                                {group.series !== '—' && <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '4px' }}>{group.manufacturer}</div>}
                                                             </div>
                                                             <div style={{ color: '#95a5a6', marginLeft: '8px' }}>{isExpanded ? <UpOutlined /> : <DownOutlined />}</div>
                                                         </div>
                                                     </div>
-                                                    {isExpanded && (
-                                                        <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', backgroundColor: 'white', borderTop: '1px solid #f0f2f5' }}>
-                                                            {group.flavors.map((flavor, index) => (
-                                                                <div key={flavor.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: index !== group.flavors.length - 1 ? '1px solid #f0f2f5' : 'none' }}>
-                                                                    <div style={{ flexGrow: 1, paddingRight: '15px' }}>
-                                                                        <div style={{ fontSize: '14px', color: '#2c3e50', fontWeight: '600' }}>{flavor.flavor} {flavor.strength !== '—' && `| ${flavor.strength}`}</div>
-                                                                        <div style={{ fontSize: '14px', color: '#2ecc71', fontWeight: '900', marginTop: '4px' }}>{calculatePricing(flavor)} ₽</div>
+                                                    {/* 🚀 АНИМИРОВАННАЯ ОБЕРТКА КАРТОЧКИ ТОВАРА (СЕТКА) */}
+                                                    <div style={{ 
+                                                        display: 'grid', 
+                                                        gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                                                        opacity: isExpanded ? 1 : 0,
+                                                        transition: 'grid-template-rows 0.35s ease-out, opacity 0.35s ease-out'
+                                                    }}>
+                                                        <div style={{ overflow: 'hidden' }}>
+                                                            <div style={{ padding: '8px 16px', display: 'flex', flexDirection: 'column', backgroundColor: 'white', borderTop: '1px solid #f0f2f5' }}>
+                                                                {group.flavors.map((flavor, index) => (
+                                                                    <div key={flavor.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: index !== group.flavors.length - 1 ? '1px solid #f0f2f5' : 'none' }}>
+                                                                        <div style={{ flexGrow: 1, paddingRight: '15px' }}>
+                                                                            <div style={{ fontSize: '14px', color: '#2c3e50', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            {flavor.flavor} 
+                                                                            {flavor.strength !== '—' && (
+                                                                                <span style={{ padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block', ...getStrengthStyle(flavor.strength) }}>
+                                                                                    {flavor.strength}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                            <div style={{ fontSize: '14px', color: '#2ecc71', fontWeight: '900', marginTop: '4px' }}>{calculatePricing(flavor)} ₽</div>
+                                                                        </div>
+                                                                        <CartControls productId={flavor.id} />
                                                                     </div>
-                                                                    <CartControls productId={flavor.id} />
-                                                                </div>
-                                                            ))}
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    )}
+                                                    </div>
                                                 </div>
                                             );
                                         })}

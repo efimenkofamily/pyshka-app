@@ -5,7 +5,10 @@ import {
     CheckCircleOutlined, 
     EnvironmentOutlined,
     ShopOutlined,
-    LoadingOutlined
+    LoadingOutlined,
+    PlusOutlined,
+    MinusOutlined,
+    DeleteOutlined
 } from '@ant-design/icons';
 
 export default function Checkout({ cart, setCart, products, config, goBack }) {
@@ -24,6 +27,115 @@ export default function Checkout({ cart, setCart, products, config, goBack }) {
         const costPrice = parseFloat(rawCost) || 0;
         const margin = (config?.category_margins && config.category_margins[product.category]) || config?.default_margin || 1.0;
         return Math.round(costPrice * margin);
+    };
+
+    // 🚀 === КОМПОНЕНТ ОДНОГО ТОВАРА СО СВАЙПОМ ===
+    const CartItem = ({ id, qty, prod, price }) => {
+        const [swipeOffset, setSwipeOffset] = useState(0);
+        const [isSwiping, setIsSwiping] = useState(false);
+        const [startX, setStartX] = useState(0);
+
+        const MAX_SWIPE = -80; // Ширина кнопки удаления
+
+        // Обработка тач-событий (свайп на мобилках)
+        const handleTouchStart = (e) => {
+            setStartX(e.touches[0].clientX);
+            setIsSwiping(true);
+        };
+
+        const handleTouchMove = (e) => {
+            if (!isSwiping) return;
+            const currentX = e.touches[0].clientX;
+            const diff = currentX - startX;
+            // Разрешаем тянуть только влево до MAX_SWIPE
+            if (diff < 0 && diff >= MAX_SWIPE) {
+                setSwipeOffset(diff);
+            }
+        };
+
+        const handleTouchEnd = () => {
+            setIsSwiping(false);
+            // Если протянули больше половины, фиксируем кнопку открытой
+            if (swipeOffset < MAX_SWIPE / 2) {
+                setSwipeOffset(MAX_SWIPE);
+            } else {
+                setSwipeOffset(0);
+            }
+        };
+
+        // Изменение количества товара
+        const updateQty = (delta) => {
+            setCart(prev => {
+                const newCart = { ...prev };
+                if (newCart[id] + delta >= 1) {
+                    newCart[id] += delta;
+                }
+                return newCart;
+            });
+            if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        };
+
+        // Полное удаление товара (кнопка корзины)
+        const removeItem = () => {
+            setCart(prev => {
+                const newCart = { ...prev };
+                delete newCart[id];
+                if (Object.keys(newCart).length === 0) goBack(); // Если корзина опустела, выкидываем в каталог
+                return newCart;
+            });
+            if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        };
+
+        return (
+            <div style={{ position: 'relative', overflow: 'hidden', borderBottom: '1px solid #f0f2f5', marginBottom: '12px', paddingBottom: '12px' }}>
+                
+                {/* 🗑️ Кнопка удаления, спрятанная под свайпом (подложка) */}
+                <div style={{ position: 'absolute', top: 0, right: 0, bottom: '12px', width: `${Math.abs(MAX_SWIPE)}px`, backgroundColor: '#e74c3c', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', zIndex: 1 }}>
+                    <DeleteOutlined style={{ fontSize: '20px' }} onClick={removeItem} />
+                </div>
+
+                {/* 📦 Основная карточка товара (подвижная часть) */}
+                <div 
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    style={{ 
+                        position: 'relative', 
+                        zIndex: 2, 
+                        backgroundColor: 'white', 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        transform: `translateX(${swipeOffset}px)`, 
+                        transition: isSwiping ? 'none' : 'transform 0.2s ease-out' 
+                    }}
+                >
+                    <div style={{ flexGrow: 1, paddingRight: '12px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2c3e50' }}>{prod.manufacturer} {prod.series !== '—' && `(${prod.series})`}</div>
+                        <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '2px' }}>{prod.flavor}</div>
+                        <div style={{ fontSize: '14px', fontWeight: '900', color: '#2ecc71', marginTop: '4px' }}>{price} ₽ / шт</div>
+                    </div>
+                    
+                    {/* Кнопки +/- */}
+                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f0f2f5', borderRadius: '20px', padding: '4px' }}>
+                        <button 
+                            onClick={() => updateQty(-1)} 
+                            style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: 'white', color: qty > 1 ? '#2ecc71' : '#bdc3c7', cursor: qty > 1 ? 'pointer' : 'not-allowed', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                            disabled={qty <= 1}
+                        >
+                            <MinusOutlined style={{ fontSize: '12px' }} />
+                        </button>
+                        <span style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px', margin: '0 12px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                        <button 
+                            onClick={() => updateQty(1)} 
+                            style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: '#2ecc71', color: 'white', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                        >
+                            <PlusOutlined style={{ fontSize: '12px' }} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const itemsTotal = Object.entries(cart).reduce((total, [id, qty]) => {
@@ -113,24 +225,15 @@ export default function Checkout({ cart, setCart, products, config, goBack }) {
             </div>
 
             <div style={{ padding: '16px' }}>
-                <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '16px', marginBottom: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '16px', marginBottom: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
                     <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#2c3e50', margin: '0 0 16px 0' }}>Ваш заказ</h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {Object.entries(cart).map(([id, qty]) => {
                             const prod = products.find(p => p.id === id);
                             if (!prod) return null;
                             const price = calculatePricing(prod);
                             return (
-                                <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f0f2f5', paddingBottom: '12px' }}>
-                                    <div style={{ flexGrow: 1, paddingRight: '12px' }}>
-                                        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#2c3e50' }}>{prod.manufacturer} {prod.series !== '—' && `(${prod.series})`}</div>
-                                        <div style={{ fontSize: '12px', color: '#7f8c8d', marginTop: '2px' }}>{prod.flavor}</div>
-                                    </div>
-                                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                        <div style={{ fontSize: '14px', fontWeight: '900', color: '#2ecc71' }}>{price * qty} ₽</div>
-                                        <div style={{ fontSize: '12px', color: '#95a5a6', marginTop: '2px' }}>{qty} x {price} ₽</div>
-                                    </div>
-                                </div>
+                                <CartItem key={id} id={id} qty={qty} prod={prod} price={price} />
                             );
                         })}
                     </div>
