@@ -1,12 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Users from './pages/Users'; // <-- ИМПОРТ Пользователей
-import Orders from './pages/Orders'; // <-- ИМПОРТ Заказов
-import Settings from './pages/Settings'; // <-- ИМПОРТ НАСТРОЕК
-import Products from './pages/Products'; // <-- ИМПОРТ ТОВАРОВ
+import Users from './pages/Users';
+import Orders from './pages/Orders';
+import Settings from './pages/Settings';
+import Products from './pages/Products';
+import Notifications from './pages/Notifications'; // <-- ДОБАВЛЕН ИМПОРТ УВЕДОМЛЕНИЙ
 import Layout from './components/Layout';
-
 
 function App() {
   return (
@@ -19,8 +19,9 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<Users />} />
           <Route path="/orders" element={<Orders />} />
-          <Route path="/products" element={<Products />} /> {/* <-- ПОДКЛЮЧИЛИ ТОВАРЫ */}
-          <Route path="/settings" element={<Settings />} /> {/* <-- ПОДКЛЮЧИЛИ НАСТРОЙКИ */}
+          <Route path="/products" element={<Products />} />
+          <Route path="/notifications" element={<Notifications />} /> {/* <-- ДОБАВЛЕН РОУТ УВЕДОМЛЕНИЙ */}
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

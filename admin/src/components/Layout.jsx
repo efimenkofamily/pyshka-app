@@ -5,7 +5,8 @@ import {
     TeamOutlined, 
     SettingOutlined, 
     LogoutOutlined,
-    AppstoreOutlined 
+    AppstoreOutlined,
+    BellOutlined
 } from '@ant-design/icons';
 
 export default function Layout() {
@@ -27,6 +28,7 @@ export default function Layout() {
         { path: '/orders', label: 'Заказы', icon: <InboxOutlined /> },
         { path: '/users', label: 'Пользователи', icon: <TeamOutlined /> },
         { path: '/products', label: 'Товары', icon: <AppstoreOutlined /> },
+        { path: '/notifications', label: 'Уведомления', icon: <BellOutlined /> },
         { path: '/settings', label: 'Настройки', icon: <SettingOutlined /> }
     ];
 
