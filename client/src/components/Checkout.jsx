@@ -11,7 +11,7 @@ import {
     DeleteOutlined
 } from '@ant-design/icons';
 
-export default function Checkout({ cart, setCart, products, config, goBack }) {
+export default function Checkout({ cart, setCart, products, config, goBack, reservedStock }) {
     const [deliveryType, setDeliveryType] = useState('pickup'); // 'pickup' или 'courier'
     const [address, setAddress] = useState('');
     const [comment, setComment] = useState('');
@@ -65,6 +65,14 @@ export default function Checkout({ cart, setCart, products, config, goBack }) {
 
         // Изменение количества товара
         const updateQty = (delta) => {
+            const availableQty = (prod?.stock_qty || 0) - (reservedStock[id] || 0);
+
+            // Если пытаемся нажать "плюс", но лимит исчерпан
+            if (delta > 0 && qty >= availableQty) {
+                if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+
             setCart(prev => {
                 const newCart = { ...prev };
                 if (newCart[id] + delta >= 1) {
@@ -117,21 +125,32 @@ export default function Checkout({ cart, setCart, products, config, goBack }) {
                     </div>
                     
                     {/* Кнопки +/- */}
-                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f0f2f5', borderRadius: '20px', padding: '4px' }}>
-                        <button 
-                            onClick={() => updateQty(-1)} 
-                            style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: 'white', color: qty > 1 ? '#2ecc71' : '#bdc3c7', cursor: qty > 1 ? 'pointer' : 'not-allowed', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                            disabled={qty <= 1}
-                        >
-                            <MinusOutlined style={{ fontSize: '12px' }} />
-                        </button>
-                        <span style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px', margin: '0 12px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
-                        <button 
-                            onClick={() => updateQty(1)} 
-                            style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: '#2ecc71', color: 'white', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                        >
-                            <PlusOutlined style={{ fontSize: '12px' }} />
-                        </button>
+                    {/* Оборачиваем элементы управления в колонку */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f8f9fa', padding: '4px', borderRadius: '20px' }}>
+                            <button onClick={() => updateQty(-1)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: 'white', color: '#e74c3c', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <MinusOutlined style={{ fontSize: '12px' }} />
+                            </button>
+                            
+                            <span style={{ fontWeight: 'bold', fontSize: '14px', minWidth: '16px', textAlign: 'center' }}>{qty}</span>
+                            
+                            <button 
+                                onClick={() => updateQty(1)} 
+                                disabled={qty >= ((prod?.stock_qty || 0) - (reservedStock[id] || 0))}
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: qty >= ((prod?.stock_qty || 0) - (reservedStock[id] || 0)) ? '#bdc3c7' : '#2ecc71', color: 'white', cursor: qty >= ((prod?.stock_qty || 0) - (reservedStock[id] || 0)) ? 'not-allowed' : 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                            >
+                                <PlusOutlined style={{ fontSize: '12px' }} />
+                            </button>
+                        </div>
+
+                        {/* 🚀 ПОДПИСЬ В КОРЗИНЕ */}
+                        <span style={{ fontSize: '10px', color: qty >= ((prod?.stock_qty || 0) - (reservedStock[id] || 0)) ? '#e74c3c' : '#95a5a6', fontWeight: 'bold' }}>
+                            {qty >= ((prod?.stock_qty || 0) - (reservedStock[id] || 0)) 
+                                ? 'Больше нет' 
+                                : `Осталось: ${((prod?.stock_qty || 0) - (reservedStock[id] || 0)) - qty} шт.`}
+                        </span>
+
                     </div>
                 </div>
             </div>

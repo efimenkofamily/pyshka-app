@@ -45,6 +45,9 @@ export default function App() {
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
     
+    // --- НОВОЕ СОСТОЯНИЕ РЕЗЕРВА ---
+    const [reservedStock, setReservedStock] = useState({});
+    
     // === СОСТОЯНИЯ ИНТЕРФЕЙСА ===
     const [viewMode, setViewMode] = useState('grid');
     const [cart, setCart] = useState({});
@@ -64,34 +67,79 @@ export default function App() {
 
     const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
+    
     // === КОМПОНЕНТ КНОПОК КОРЗИНЫ ===
     const CartControls = ({ productId }) => {
         const qty = cart[productId] || 0;
+        const product = originalProducts.find(p => p.id === productId);
+        
+        // Всего доступно на складе (за вычетом чужих резервов)
+        const availableQty = (product?.stock_qty || 0) - (reservedStock[productId] || 0);
+        // Сколько ЕЩЕ можно добавить (за вычетом того, что уже в нашей корзине)
+        const leftToAdd = availableQty - qty;
+
+        // Если товар еще не добавлен в корзину
         if (qty === 0) {
             return (
-                <button 
-                    onClick={() => addToCart(productId)} 
-                    style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', boxShadow: '0 2px 6px rgba(46, 204, 113, 0.3)' }}
-                >
-                    Добавить
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <button 
+                        onClick={() => addToCart(productId)} 
+                        disabled={availableQty <= 0}
+                        style={{ backgroundColor: availableQty <= 0 ? '#bdc3c7' : '#2ecc71', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', cursor: availableQty <= 0 ? 'not-allowed' : 'pointer', fontSize: '13px', boxShadow: '0 2px 6px rgba(46, 204, 113, 0.3)' }}
+                    >
+                        {availableQty <= 0 ? 'Закончился' : 'Добавить'}
+                    </button>
+                    {availableQty > 0 && (
+                        <span style={{ fontSize: '10px', color: '#95a5a6', fontWeight: 'bold', marginTop: '-2px' }}>
+                            В наличии: {availableQty} шт.
+                        </span>
+                    )}
+                </div>
             );
         }
+        
+        // Если товар уже в корзине (показываем + и -)
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0f2f5', borderRadius: '20px', padding: '4px', minWidth: '90px' }}>
-                <button onClick={() => removeFromCart(productId)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: 'white', color: '#2ecc71', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><MinusOutlined style={{ fontSize: '12px' }} /></button>
-                <span style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px', margin: '0 8px' }}>{qty}</span>
-                <button onClick={() => addToCart(productId)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: '#2ecc71', color: 'white', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><PlusOutlined style={{ fontSize: '12px' }} /></button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0f2f5', borderRadius: '20px', padding: '4px', minWidth: '90px' }}>
+                    <button onClick={() => removeFromCart(productId)} style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: 'white', color: '#2ecc71', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><MinusOutlined style={{ fontSize: '12px' }} /></button>
+                    <span style={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '14px', margin: '0 8px' }}>{qty}</span>
+                    <button onClick={() => addToCart(productId)} disabled={leftToAdd <= 0} style={{ width: '28px', height: '28px', borderRadius: '50%', border: 'none', backgroundColor: leftToAdd <= 0 ? '#bdc3c7' : '#2ecc71', color: 'white', cursor: leftToAdd <= 0 ? 'not-allowed' : 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><PlusOutlined style={{ fontSize: '12px' }} /></button>
+                </div>
+                
+                {/* 🚀 НАШ НОВЫЙ ТЕКСТ С ОСТАТКАМИ */}
+                <span style={{ fontSize: '10px', color: leftToAdd <= 0 ? '#e74c3c' : '#95a5a6', fontWeight: 'bold' }}>
+                    {leftToAdd <= 0 ? 'Больше нет' : `Осталось: ${leftToAdd} шт.`}
+                </span>
             </div>
         );
     };
 
     useEffect(() => {
+        // 1. Инициализация Telegram и проверка прав (которая сама запустит каталог)
         if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
         }
         checkUserAccess();
+
+        // 2. ⚡ ПОДКЛЮЧАЕМСЯ К КАНАЛУ REALTIME ДЛЯ ЗАКАЗОВ
+        const ordersSubscription = supabase
+            .channel('realtime-orders-channel')
+            .on(
+                'postgres_changes', 
+                { event: '*', schema: 'public', table: 'orders' }, 
+                (payload) => {
+                    console.log('⚡ Изменение в заказах! Пересчитываем остатки...', payload);
+                    fetchReservedStock(); // Эта функция у тебя уже добавлена!
+                }
+            )
+            .subscribe();
+
+        // 3. Отключаемся от канала при закрытии приложения (очистка памяти)
+        return () => {
+            supabase.removeChannel(ordersSubscription);
+        };
     }, []);
 
     const checkUserAccess = async () => {
@@ -135,17 +183,56 @@ export default function App() {
         return match ? parseFloat(match[0]) : null;
     };
 
+    // ⚡ ФУНКЦИЯ ПЕРЕСЧЕТА В РЕАЛЬНОМ ВРЕМЕНИ
+    const fetchReservedStock = async () => {
+        try {
+            // Запрашиваем актуальные активные заказы
+            const { data, error } = await supabase.from('orders').select('items').in('status_id', [1, 2, 3]);
+            if (error) throw error;
+            
+            if (data) {
+                const reserved = {};
+                data.forEach(order => {
+                    if (order.items) {
+                        Object.entries(order.items).forEach(([prodId, itemData]) => {
+                            reserved[prodId] = (reserved[prodId] || 0) + itemData.qty;
+                        });
+                    }
+                });
+                // Обновляем состояние — React сам перерисует кнопки!
+                setReservedStock(reserved);
+            }
+        } catch (err) {
+            console.error("Ошибка обновления резервов:", err);
+        }
+    };
+
     const fetchCatalogData = async () => {
         setLoading(true);
         try {
-            const [productsRes, imagesRes, configRes] = await Promise.all([
+            // 🚀 ИЗМЕНЕНИЕ: Скачиваем еще и активные заказы (предполагаем, что статусы 1, 2, 3 - это активные заказы в работе)
+            const [productsRes, imagesRes, configRes, ordersRes] = await Promise.all([
                 supabase.from('products').select('*').eq('availability', 'есть'),
                 supabase.from('series_images').select('*'),
-                supabase.from('config').select('*').eq('id', 1).single()
+                supabase.from('config').select('*').eq('id', 1).single(),
+                supabase.from('orders').select('items').in('status_id', [1, 2, 3]) 
             ]);
 
             if (productsRes.error) throw productsRes.error;
             setConfig(configRes.data);
+
+            // 🚀 ИЗМЕНЕНИЕ: Считаем, сколько товаров уже зарезервировано другими людьми
+            const reserved = {};
+            if (ordersRes.data) {
+                ordersRes.data.forEach(order => {
+                    if (order.items) {
+                        Object.entries(order.items).forEach(([prodId, itemData]) => {
+                            reserved[prodId] = (reserved[prodId] || 0) + itemData.qty;
+                        });
+                    }
+                });
+            }
+            setReservedStock(reserved);
             setOriginalProducts(productsRes.data || []);
 
             const uniqueCategories = ['Все', ...new Set(productsRes.data.map(p => p.category).filter(Boolean))];
@@ -210,6 +297,17 @@ export default function App() {
     };
 
     const addToCart = (productId) => {
+        const product = originalProducts.find(p => p.id === productId);
+        // Вычисляем реальный остаток: (Склад) - (Чужие заказы)
+        const availableQty = (product?.stock_qty || 0) - (reservedStock[productId] || 0);
+        const currentQtyInCart = cart[productId] || 0;
+
+        // Если пытаемся добавить больше, чем есть реально — блокируем!
+        if (currentQtyInCart >= availableQty) {
+            if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            return; 
+        }
+
         setCart(prev => ({ ...prev, [productId]: (prev[productId] || 0) + 1 }));
         if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
     };
@@ -306,6 +404,7 @@ export default function App() {
                         setCart={setCart}
                         products={originalProducts}
                         config={config}
+                        reservedStock={reservedStock}
                         goBack={() => setCurrentScreen('catalog')}
                     />
                 </div>
